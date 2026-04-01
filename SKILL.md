@@ -1,15 +1,15 @@
 ---
 name: generate-design-system
-description: "Generates a complete design system in Figma — variables, tokens, text styles, components with variants and Auto Layout — following a 5-phase workflow. Use when the user says 'create design system', 'build DS in Figma', 'generate component library', 'set up tokens in Figma', 'create variables and components', or wants to push a design system from code to Figma. Works both from scratch (standalone) and from an existing codebase. Does NOT implement Figma designs as code — use figma-implement-design for that. Does NOT create individual screens — use figma-generate-design for that."
+description: "Generates a complete design system in Figma — variables, tokens, text styles, components with variants and Auto Layout — following a structured phased workflow. Use when the user says 'create design system', 'build DS in Figma', 'generate component library', 'set up tokens in Figma', 'create variables and components', 'audit my design system', or wants to push a design system from code to Figma. Works from scratch, from an existing codebase, or by auditing and extending an existing Figma file. Does NOT implement Figma designs as code — use figma-implement-design for that. Does NOT create individual screens — use figma-generate-design for that."
 compatibility: Requires the figma-use skill to be installed. Requires Figma MCP server (remote) connected.
 metadata:
   mcp-server: figma
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Generate design system in Figma
 
-Creates or updates a complete design system in a Figma file using a structured 5-phase workflow: Discovery → Foundations → File Structure → Components → QA. Supports both standalone creation and syncing from an existing codebase.
+Creates or updates a complete design system in a Figma file using a structured phased workflow: Discovery (with audit for existing files) → Foundations → File Structure → Components → QA. Supports standalone creation, syncing from a codebase, and extending existing files.
 
 **Always pass `skillNames: "generate-design-system"` when calling `use_figma` as part of this skill.** This is a logging parameter — it does not affect execution.
 
@@ -41,6 +41,7 @@ If the user asks for something outside these boundaries, say so and redirect to 
 
 - Creating a new design system in Figma from scratch
 - Syncing tokens and components from an existing codebase into Figma
+- Auditing an existing Figma file for quality issues (ALL_SCOPES, missing codeSyntax, hardcoded values)
 - Rebuilding or migrating a legacy Figma library to use Variables
 - Setting up a multi-brand or multi-theme token architecture
 - Standardizing an existing Figma file's components to match code conventions
@@ -73,15 +74,20 @@ Scan for:
 
 Read `references/framework-mappings.md` for framework-specific extraction patterns.
 
-#### 1c. If a Figma file already exists — inspect it
+#### 1c. If a Figma file already exists — audit it
 
-Run a read-only `use_figma` call to audit the current state:
-- Existing Variable Collections and their structure
-- Existing components and their naming patterns
-- Page structure
-- Any published styles
+Run `scripts/validate-design-system.js` via `use_figma` to get a structured report, then supplement with targeted checks:
 
-Return results and present to the user.
+- **Variables:** List all collections, variable counts, and modes. Flag `ALL_SCOPES` violations and suggest specific scopes per variable type.
+- **codeSyntax:** Check WEB coverage — list variables that lack `codeSyntax.WEB` (these break the design-to-code bridge).
+- **Duplicate variables:** Flag variables with identical values but different names.
+- **Bindings:** Sample component sets — count bound vs unbound fills/strokes/spacing. Flag hardcoded values.
+- **Text styles:** Check for missing variable bindings in text styles.
+- **Text nodes:** Flag text nodes inside components that lack TEXT component properties (overrides will be lost on update).
+- **Components:** List existing components and their naming patterns.
+- **Page structure:** List pages and their organization.
+
+Present the audit report to the user with a severity summary (errors vs warnings). If Foundations are already complete, the user may skip Phase 2 and go directly to Phase 3 or 4.
 
 #### 1d. Confirm scope
 
@@ -90,6 +96,8 @@ Present the user with a summary:
 - Number of modes (Light/Dark, brands)
 - Component list (prioritized — core first, extended later)
 - Target naming convention
+- Component numbering convention — common pattern: `C{section}.{number} {Name}` where section groups related components (1=Buttons, 2=Inputs, 3=Selection controls, etc.)
+- CSS token naming convention for `codeSyntax.WEB` (e.g., `--color-bg-primary`, `$t-color-core-red-55`, `var(--btn-hero-h)`)
 
 **Do not proceed until the user confirms.**
 
@@ -132,6 +140,8 @@ Validate after creating each collection:
 - Call `get_metadata` to verify collection names, variable counts, and modes
 - Call `get_screenshot` to spot-check the Variables panel
 
+IMPORTANT: After creating each variable, set `codeSyntax = { WEB: "token-name" }` using the project's CSS token naming convention (agreed in Discovery 1d). If syncing from code, extract token names from the source (CSS custom properties, Tailwind config keys, design-tokens JSON `$value` paths). If from scratch, derive from variable name: `color/bg/primary` → `--color-bg-primary`. Without codeSyntax, agents using `get_design_context` get raw variable names instead of CSS tokens, breaking the design-to-code bridge.
+
 #### 2b. Create Text Styles
 
 - Map to the typography scale: Display, Heading 1–4, Body Large, Body, Body Small, Caption, Overline
@@ -161,7 +171,21 @@ Create these pages in order:
    - Spacing scale visualization
    - Radius visualization
    - Shadow samples
-4. **Components** — Empty page (populated in Phase 4)
+4. **Components** — One page per component group (e.g., `→ Buttons`, `→ Inputs`, `→ Selection Controls`). Each page follows this internal structure:
+   ```
+   Page: → Buttons
+   └── Buttons (wrapper frame, VERTICAL auto-layout)
+       ├── Page Title Header (branded banner with component group name)
+       └── Specs Container (VERTICAL, itemSpacing=64, paddingL/R=96)
+           ├── Spec: C1.0 Button (Primary)
+           │   ├── Title row (component name, ALL CAPS)
+           │   ├── Column headers (state labels: Default, Hover, Pressed, Disabled)
+           │   ├── Row labels (size labels: Hero, Default, Small)
+           │   └── Component Set (nested inside)
+           ├── Spec: C1.1 Button (Secondary)
+           └── Spec: C1.2 Button (Tertiary)
+   ```
+   Define the spec wrapper template in this phase so all component pages use consistent spacing, padding, and labeling.
 5. **Patterns** (optional) — Common layouts, form patterns
 6. **Utilities** (optional) — Dividers, spacers, status dots
 
@@ -181,7 +205,8 @@ Read `references/component-spec.md` before starting this phase.
 
 #### 4a. Determine component order
 
-Start with the core 10 (in this order):
+If the file already has components (discovered in Phase 1c), derive the build list from what exists. Otherwise, present the default core 10 as a starting suggestion:
+
 1. Button
 2. Input
 3. Select
@@ -193,7 +218,9 @@ Start with the core 10 (in this order):
 9. Modal / Dialog
 10. Toast / Notification
 
-Then add extended components based on user needs.
+Ask the user to confirm, reorder, add, or remove from this list based on their actual design system. Real systems often include components not in this list (Links, Breadcrumbs, Tabs, Tag/Chips, Date Picker, Progress Stepper, Pagination) and may not need some that are (Badge, Avatar).
+
+Apply the component numbering convention from Discovery (e.g., C1.0, C1.1, C2.0).
 
 #### 4b. Build each component
 
@@ -207,6 +234,9 @@ For EACH component, follow this sequence:
 **Step 2: Define variant properties**
 - Match code prop naming: `Type`, `Size`, `State` (or `variant`, `size`, `state` — align with the codebase)
 - Read `references/naming-conventions.md` for the mapping table
+- For every text node that users will customize (labels, placeholders, headings), add a TEXT component property and link it via `componentPropertyReferences = { characters: key }`. This preserves overrides when the component is updated.
+- Use Boolean properties for toggles: `Has Icon`, `Has Description`, `Dismissible`
+- Use Instance Swap properties for icon slots
 
 **Step 3: Build all states**
 Start with states, not just the default:
@@ -219,10 +249,15 @@ Start with states, not just the default:
 - Combine variants into a Component Set
 - Verify naming: `Type=Primary, Size=Medium, State=Default` in Figma should correspond to `<Button variant="primary" size="md" />` in code
 
-**Step 5: Validate this component**
+**Step 5: Validate and document this component**
 - `get_screenshot` — check visual correctness, look for clipped text and overlapping elements
 - `get_metadata` — verify variant count, hierarchy, Auto Layout structure
 - If issues found: fix targeted parts only, don't recreate from scratch
+- Create a spec wrapper frame around the component set (using the template from Phase 3):
+  - Title: component number and name (e.g., "C1.0 BUTTON (PRIMARY)")
+  - Column headers: state names aligned to variant columns
+  - Row labels: size/variant group names aligned to variant rows
+  - This makes the variant matrix readable for designers reviewing the file
 
 **Step 6: Move to next component**
 
@@ -276,10 +311,14 @@ Present to the user:
 
 - [ ] Token architecture: Primitive → Semantic minimum
 - [ ] Core colors, spacing, radius, typography as Figma Variables
+- [ ] All variables have explicit scopes (no ALL_SCOPES)
+- [ ] All variables have `codeSyntax.WEB` set
 - [ ] Light and Dark modes configured and tested
-- [ ] 10 core components built with Auto Layout
-- [ ] All components bound to Semantic variables (no hardcoded values)
+- [ ] Components built with Auto Layout, bound to Semantic variables
+- [ ] All text nodes in components have TEXT component properties
 - [ ] Naming convention documented and consistent
+- [ ] Component numbering applied
+- [ ] Spec wrapper frames with state/size labels for each component
 - [ ] At least one full page assembled from system components only
 - [ ] All variants include all required states
 
@@ -308,6 +347,17 @@ User says: "Sync our React component library to Figma. Tokens are in `tailwind.c
 3. File Structure: Standard pages
 4. Components: Build each component matching React props → Figma variants
 5. QA: Validate naming parity, test page, suggest Code Connect
+
+**Example 3: Existing file with partial work**
+
+User says: "I have a Figma file with 175 variables and 23 text styles already done. Need to audit it for issues, then build the components."
+
+**Actions:**
+1. Discovery: Run audit on existing file — flag ALL_SCOPES violations, missing codeSyntax, unbound values, duplicate variables
+2. Foundations: Fix audit findings (add scopes, set codeSyntax WEB, remove duplicates). Skip creation since tokens already exist.
+3. File Structure: Create component pages with wrapper structure
+4. Components: Derive component list from the user's actual inventory, not the default core 10. Build with spec wrapper frames.
+5. QA: Full audit, test page, summary
 
 ---
 
