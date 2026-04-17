@@ -3,6 +3,8 @@ name: generate-design-system
 description: >
   Build or extend design systems in Figma — create components with proper variable bindings,
   validate token coverage, and enforce quality patterns following a structured phased workflow.
+  For teams where Figma is the canonical source of truth for design tokens, components, and
+  developer handoff.
   Use when the user says 'create design system', 'build DS in Figma', 'generate component library',
   'set up tokens in Figma', 'create variables and components', 'audit my design system',
   or wants to push a design system from code to Figma.
@@ -11,16 +13,20 @@ description: >
   Works from scratch, from an existing codebase, or by auditing and extending an existing Figma file.
   Does NOT implement Figma designs as code — use figma-implement-design for that.
   Does NOT create individual screens — use figma-generate-design for that.
+  Does NOT extract an internal DS for Claude Design — Claude Design has its own extraction
+  flow at claude.ai/design. Use this skill when Figma is the source of truth.
 compatibility: >
   Requires the figma-use skill to be installed. Requires Figma MCP server (remote) connected.
 metadata:
   mcp-server: figma
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # Generate design system in Figma
 
 Creates, extends, or updates a design system in a Figma file using a structured phased workflow. Supports three paths: full build from scratch, syncing from a codebase, and extending an existing file that already has variables/styles. The skill ensures proper variable bindings, per-component validation, and consistent spec documentation regardless of the starting point.
+
+For teams where **Figma is the canonical source of truth** for design tokens, components, and developer handoff. Complements Anthropic's [Claude Design](https://claude.ai/design), which keeps design systems inside its own prototyping environment — this skill puts the system into Figma with full Plugin API rigor (explicit scopes, `codeSyntax.WEB`, TEXT component properties, variable modes, WCAG contrast validation).
 
 **Always pass `skillNames: "generate-design-system"` when calling `use_figma` as part of this skill.** This is a logging parameter — it does not affect execution.
 
@@ -34,13 +40,13 @@ IMPORTANT: Before working with design systems in Figma, load the `working-with-d
 
 **This skill does:**
 
-- Create Variable Collections (Primitives, Semantic, Component-level)
+- Create Variable Collections (Primitives, Semantic, Component-level) or flat domain-based collections
 - Set up Light/Dark modes (and multi-brand modes)
 - Build Text Styles and Effect Styles
 - Generate components with variants, Auto Layout, and variable bindings
 - Organize the Figma file with standard page structure
-- Validate output with screenshots and metadata checks
-- Audit existing files for quality issues and fix them
+- Validate output with screenshots, metadata checks, and a structured audit script
+- Audit existing files for quality issues (scopes, codeSyntax, bindings, TEXT properties, WCAG contrast) and fix them
 - Add components to a file where foundations (variables, text styles) already exist
 
 **This skill does NOT:**
@@ -49,6 +55,7 @@ IMPORTANT: Before working with design systems in Figma, load the `working-with-d
 - Build full-page screens from components → use `figma-generate-design`
 - Create Code Connect mappings → use `figma-code-connect-components`
 - Write agent rule files (CLAUDE.md) → use `figma-create-design-system-rules`
+- Extract an internal design system for Claude Design → Claude Design has its own extraction flow at [claude.ai/design](https://claude.ai/design). Use this skill when Figma is the source of truth.
 
 If the user asks for something outside these boundaries, say so and redirect to the appropriate skill.
 
@@ -57,7 +64,7 @@ If the user asks for something outside these boundaries, say so and redirect to 
 - Creating a new design system in Figma from scratch
 - Syncing tokens and components from an existing codebase into Figma
 - **Creating components in a file where variables and text styles already exist** — the skill ensures proper binding, validation, and documentation even when foundations are done
-- Auditing an existing Figma file for quality issues (ALL_SCOPES, missing codeSyntax, hardcoded values)
+- Auditing an existing Figma file for quality issues (ALL_SCOPES, missing codeSyntax, hardcoded values, WCAG contrast failures)
 - Rebuilding or migrating a legacy Figma library to use Variables
 - Setting up a multi-brand or multi-theme token architecture
 - Standardizing an existing Figma file's components to match code conventions
@@ -121,12 +128,18 @@ Read `references/framework-mappings.md` for framework-specific extraction patter
 
 #### 1c. If a Figma file already exists — audit it
 
-Run `scripts/validate-design-system.js` via `use_figma` to get a structured report, then supplement with targeted checks:
+Run `scripts/validate-design-system.js` via `use_figma` to get a structured report. The script (v1.3.0+) covers:
 
-- **Variables:** List all collections, variable counts, and modes. Flag `ALL_SCOPES` violations and suggest specific scopes per variable type.
-- **codeSyntax:** Check WEB coverage — list variables that lack `codeSyntax.WEB` (these break the design-to-code bridge).
-- **Duplicate variables:** Flag variables with identical values but different names.
-- **Bindings:** Sample component sets — count bound vs unbound fills/strokes/spacing. Use the audit pattern from `scripts/auditComponentBindings.js` (or embed inline):
+- **Variables:** collections, counts, modes, ALL_SCOPES violations, `codeSyntax.WEB` coverage, duplicate primitive values, mode parity
+- **Text styles:** count and variable binding coverage on `fontSize` / `lineHeight` / `fontFamily` / `fontWeight`
+- **Components:** hardcoded color fills, hardcoded strokes, missing Auto Layout, text nodes lacking TEXT component properties (overrides lost on update)
+- **Page structure:** presence of expected pages (Cover, Foundations, Components)
+- **Accessibility:** WCAG AA contrast for every `color/text/*` × `color/bg/*` pair in both Light and Dark modes. Surfaces up to 10 worst failures as warnings; full matrix returned in `contrast.worstLight` / `contrast.worstDark`.
+
+Supplement with targeted inspection where the script output needs interpretation or the file has conventions outside the default check set:
+
+- List existing components and their naming patterns.
+- Sample a couple of component sets manually. Use the audit pattern from `scripts/auditComponentBindings.js` (or embed inline):
 
 ```js
 // Audit a component set for variable binding coverage
@@ -167,12 +180,7 @@ for (const variant of cs.children) {
 return { bound, hardcoded, ratio: `${bound}/${bound + hardcoded}` };
 ```
 
-- **Text styles:** Check for missing variable bindings in text styles.
-- **Text nodes:** Flag text nodes inside components that lack TEXT component properties (overrides will be lost on update).
-- **Components:** List existing components and their naming patterns.
-- **Page structure:** List pages and their organization.
-
-Present the audit report to the user with a severity summary (errors vs warnings).
+Present the audit report to the user with a severity summary (errors vs warnings) and the contrast report.
 
 **Based on audit results, recommend a path:**
 - **Build in place** — file has solid variable structure, components need fixes but not recreation
@@ -412,7 +420,7 @@ IMPORTANT: Do NOT build all components in a single `use_figma` call. Build one c
 
 #### 5a. Full audit
 
-Run a comprehensive check:
+Run `scripts/validate-design-system.js` for a structured pass, then spot-check:
 
 - All components use Auto Layout (no absolute positioning except icons)
 - All fills/strokes reference variables (no raw hex values except documented exceptions per Critical Rule #3)
@@ -420,6 +428,7 @@ Run a comprehensive check:
 - Spacing uses spacing variables where scale values exist
 - Naming is consistent (check `references/naming-conventions.md`)
 - Light/Dark mode toggle produces correct results for all components
+- WCAG contrast: review `contrast.worstLight` and `contrast.worstDark` from the audit output. Every pair with `ratio < 4.5` fails AA for normal text. Every pair with `ratio < 3` fails even for large text — these are almost always real bugs.
 
 #### 5b. Test a full page
 
@@ -447,6 +456,7 @@ Present to the user:
 - Total Text Styles and Effect Styles
 - Total components and variant count
 - Pages created
+- WCAG contrast summary (pass rate per mode, worst offenders)
 - Any known gaps or TODO items
 - Checklist status (see below)
 
@@ -465,6 +475,7 @@ Present to the user:
 - Spec wrapper frames with state/size labels for each component (fixed width: 996px)
 - At least one full page assembled from system components only
 - All variants include all required states
+- WCAG AA contrast pass for all `color/text/*` × `color/bg/*` pairs in both Light and Dark modes (or exceptions documented)
 
 ---
 
@@ -500,7 +511,7 @@ User says: "I have a Figma file with 175 variables and 23 text styles already do
 
 **Actions:**
 
-1. Discovery: Run audit on existing file — flag ALL_SCOPES violations, missing codeSyntax, unbound values, duplicate variables
+1. Discovery: Run audit on existing file — flag ALL_SCOPES violations, missing codeSyntax, unbound values, duplicate variables, contrast failures
 2. Foundations: Fix audit findings (add scopes, set codeSyntax WEB, remove duplicates). Skip creation since tokens already exist.
 3. File Structure: Create component pages with wrapper structure
 4. Components: Derive component list from the user's actual inventory, not the default core 10. Build with spec wrapper frames.
@@ -539,6 +550,8 @@ User says: "Variables and text styles are set up. I need to build 7 components w
 **Component-specific dimensions:** Some component internals have pixel values outside the spacing scale (e.g., 3px toggle track padding when the scale has 2 and 4). These are acceptable as hardcoded values — forcing the nearest scale value would change the visual. Document in the component's description.
 
 **Component numbering divergence:** When rebuilding an existing file, Figma page/component names may follow different numbering than the organizational plan. Both are valid. Document the mapping: plan says "C2.2 Toggle Switch" but Figma name is "C4.0 Toggle Switch" → add a note in the plan entry.
+
+**Contrast failures on brand colors:** If a required brand color pair fails WCAG AA (e.g., brand primary button text on brand primary background), don't silently pass. Options: (a) darken the text or lighten the bg until it passes, (b) restrict the pair to large-text-only use cases and document the restriction, (c) escalate to the brand owner. Don't ship failing pairs without a decision.
 
 ---
 

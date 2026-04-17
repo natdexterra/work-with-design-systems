@@ -1,14 +1,35 @@
 /**
- * QA Validation Script for Design System
+ * QA Validation Script for Design System — v1.3.0
  * Run via use_figma to audit the current Figma file.
  * Returns a structured report of issues found.
  *
- * Usage: Execute this script in Phase 5 (QA) via use_figma.
- * The script is read-only — it inspects but does not modify the file.
+ * Read-only: inspects but does not modify the file.
+ *
+ * Checks:
+ *  - Variable collections (Primitives required; Semantic recommended)
+ *  - Variable scopes (ALL_SCOPES violations)
+ *  - codeSyntax.WEB coverage
+ *  - Duplicate primitive values
+ *  - Mode parity (values present in all modes)
+ *  - Semantic Light/Dark mode presence
+ *  - Text styles count and variable bindings
+ *  - Effect styles count
+ *  - Expected pages (Cover, Foundations, Components)
+ *  - Hardcoded color fills and strokes inside component trees
+ *  - Missing Auto Layout on components
+ *  - Text nodes without TEXT component properties
+ *  - WCAG AA contrast for color/text × color/bg pairs in Light and Dark
+ *
+ * Per SKILL.md Critical Rule #3 (v1.2.0): this script flags hardcoded
+ * *colors* only (fills, strokes). Component-specific pixel dimensions
+ * outside the spacing scale are permitted and NOT flagged here.
  */
 
 (async () => {
   try {
+    // Dynamic-page mode requires explicit page loading before iteration.
+    await figma.loadAllPagesAsync();
+
     const issues = [];
     const stats = {
       variableCollections: 0,
@@ -17,161 +38,496 @@
       effectStyles: 0,
       components: 0,
       componentSets: 0,
-      pages: 0,
+      pages: figma.root.children.length,
     };
 
-    // 1. Check Variable Collections
-    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    const addIssue = (severity, category, message) => {
+      issues.push({ severity, category, message });
+    };
+
+    // ---------- Helpers ----------
+
+    // WCAG relative luminance. Input: {r,g,b} in 0..1.
+    const relativeLuminance = (c) => {
+      const lin = (v) =>
+        v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+    };
+
+    const contrastRatio = (c1, c2) => {
+      const l1 = relativeLuminance(c1);
+      const l2 = relativeLuminance(c2);
+      const lighter = Math.max(l1, l2);
+      const darker = Math.min(l1, l2);
+      return (lighter + 0.05) / (darker + 0.05);
+    };
+
+    // Check whether a paint (fill or stroke) has a color variable binding.
+    // Handles both per-paint (paint.boundVariables.color) and node-level
+    // (node.boundVariables.fills[idx] / strokes[idx]) binding paths, since
+    // the Figma API has historically exposed both shapes.
+    const isPaintBound = (node, paintsKey, paint, paintIndex) => {
+      if (paint && paint.boundVariables && paint.boundVariables.color) {
+        return true;
+      }
+      const nodeBindings = node.boundVariables && node.boundVariables[paintsKey];
+      if (Array.isArray(nodeBindings) && nodeBindings[paintIndex]) {
+        return true;
+      }
+      return false;
+    };
+
+    // Resolve a variable's color value for a given mode, following alias chains.
+    // Prefers modes with matching names across collections; falls back to default.
+    const colorCache = new Map();
+    const resolveColorValue = async (variable, modeId, visited = new Set()) => {
+      const cacheKey = `${variable.id}::${modeId}`;
+      if (colorCache.has(cacheKey)) return colorCache.get(cacheKey);
+      if (visited.has(variable.id)) return null;
+      visited.add(variable.id);
+
+      const raw = variable.valuesByMode[modeId];
+      if (raw === undefined) {
+        colorCache.set(cacheKey, null);
+        return null;
+      }
+
+      if (raw && typeof raw === "object" && raw.type === "VARIABLE_ALIAS") {
+        const aliased = await figma.variables.getVariableByIdAsync(raw.id);
+        if (!aliased) {
+          colorCache.set(cacheKey, null);
+          return null;
+        }
+        const aliasedCol =
+          await figma.variables.getVariableCollectionByIdAsync(
+            aliased.variableCollectionId
+          );
+        const origCol = await figma.variables.getVariableCollectionByIdAsync(
+          variable.variableCollectionId
+        );
+        const origModeName = origCol?.modes.find(
+          (m) => m.modeId === modeId
+        )?.name;
+        const target =
+          aliasedCol?.modes.find((m) => m.name === origModeName) ||
+          aliasedCol?.modes.find(
+            (m) => m.modeId === aliasedCol.defaultModeId
+          ) ||
+          aliasedCol?.modes[0];
+        if (!target) {
+          colorCache.set(cacheKey, null);
+          return null;
+        }
+        const resolved = await resolveColorValue(
+          aliased,
+          target.modeId,
+          visited
+        );
+        colorCache.set(cacheKey, resolved);
+        return resolved;
+      }
+
+      if (raw && typeof raw === "object" && "r" in raw) {
+        colorCache.set(cacheKey, raw);
+        return raw;
+      }
+
+      colorCache.set(cacheKey, null);
+      return null;
+    };
+
+    // ---------- 1. Variable collections ----------
+    const collections =
+      await figma.variables.getLocalVariableCollectionsAsync();
     stats.variableCollections = collections.length;
 
-    const collectionNames = collections.map((c) => c.name);
-    if (!collectionNames.some((n) => n.toLowerCase().includes("primitiv"))) {
-      issues.push({
-        severity: "error",
-        category: "tokens",
-        message: 'Missing "Primitives" variable collection',
-      });
+    const lowerNames = collections.map((c) => c.name.toLowerCase());
+    if (!lowerNames.some((n) => n.includes("primitiv"))) {
+      addIssue("error", "tokens", 'Missing "Primitives" variable collection');
     }
-    if (!collectionNames.some((n) => n.toLowerCase().includes("semantic"))) {
-      issues.push({
-        severity: "error",
-        category: "tokens",
-        message: 'Missing "Semantic" variable collection',
-      });
+    // Per v1.2.0 flexible architecture: flat domain-based collections are valid.
+    // Warn but do not error when Semantic is missing.
+    if (!lowerNames.some((n) => n.includes("semantic"))) {
+      addIssue(
+        "warning",
+        "tokens",
+        'No "Semantic" collection found. If using flat domain-based architecture (Colors, Spacing, Radius), this is expected.'
+      );
     }
 
-    // 2. Check variables and scopes
+    // ---------- 2. Variables: scopes, codeSyntax, mode parity, duplicates ----------
     const variables = await figma.variables.getLocalVariablesAsync();
     stats.variables = variables.length;
 
     let allScopesCount = 0;
+    let missingCodeSyntaxCount = 0;
+    const primitiveValueMap = new Map();
+
     for (const v of variables) {
       if (v.scopes && v.scopes.length === 1 && v.scopes[0] === "ALL_SCOPES") {
         allScopesCount++;
       }
-    }
-    if (allScopesCount > 0) {
-      issues.push({
-        severity: "warning",
-        category: "tokens",
-        message: `${allScopesCount} variables have ALL_SCOPES (should be explicitly scoped)`,
-      });
+      if (
+        !v.codeSyntax ||
+        !v.codeSyntax.WEB ||
+        v.codeSyntax.WEB.trim() === ""
+      ) {
+        missingCodeSyntaxCount++;
+      }
+
+      const collection = collections.find(
+        (c) => c.id === v.variableCollectionId
+      );
+      if (!collection) continue;
+
+      // Mode parity
+      for (const mode of collection.modes) {
+        if (v.valuesByMode[mode.modeId] === undefined) {
+          addIssue(
+            "warning",
+            "tokens",
+            `Variable "${v.name}" missing value in mode "${mode.name}"`
+          );
+        }
+      }
+
+      // Duplicate detection — only for Primitives with raw values (not aliases).
+      if (collection.name.toLowerCase().includes("primitiv")) {
+        for (const mode of collection.modes) {
+          const val = v.valuesByMode[mode.modeId];
+          if (val === undefined || val === null) continue;
+          let key = null;
+          if (typeof val === "object" && "r" in val) {
+            key = `${mode.modeId}::color::${val.r.toFixed(4)}:${val.g.toFixed(
+              4
+            )}:${val.b.toFixed(4)}:${(val.a ?? 1).toFixed(4)}`;
+          } else if (typeof val === "number") {
+            key = `${mode.modeId}::number::${val}`;
+          } else if (typeof val === "string") {
+            key = `${mode.modeId}::string::${val}`;
+          }
+          if (key) {
+            if (!primitiveValueMap.has(key)) primitiveValueMap.set(key, []);
+            primitiveValueMap.get(key).push(v.name);
+          }
+        }
+      }
     }
 
-    // 3. Check for Light/Dark modes in Semantic collection
+    if (allScopesCount > 0) {
+      addIssue(
+        "warning",
+        "tokens",
+        `${allScopesCount} variables have ALL_SCOPES (should be explicitly scoped)`
+      );
+    }
+    if (missingCodeSyntaxCount > 0) {
+      addIssue(
+        "warning",
+        "tokens",
+        `${missingCodeSyntaxCount} variables missing codeSyntax.WEB (breaks design-to-code bridge)`
+      );
+    }
+
+    for (const [, names] of primitiveValueMap.entries()) {
+      const unique = [...new Set(names)];
+      if (unique.length > 1) {
+        const shown = unique.slice(0, 4).join(", ");
+        const more = unique.length > 4 ? `, +${unique.length - 4} more` : "";
+        addIssue(
+          "warning",
+          "tokens",
+          `Duplicate primitive value shared by ${unique.length} variables: ${shown}${more}`
+        );
+      }
+    }
+
+    // ---------- 3. Semantic Light/Dark modes ----------
     const semanticCollection = collections.find((c) =>
       c.name.toLowerCase().includes("semantic")
     );
     if (semanticCollection) {
-      const modeNames = semanticCollection.modes.map((m) => m.name);
-      if (!modeNames.some((n) => n.toLowerCase().includes("light"))) {
-        issues.push({
-          severity: "warning",
-          category: "tokens",
-          message: 'Semantic collection missing "Light" mode',
-        });
+      const modeNames = semanticCollection.modes.map((m) =>
+        m.name.toLowerCase()
+      );
+      if (!modeNames.some((n) => n.includes("light"))) {
+        addIssue(
+          "warning",
+          "tokens",
+          'Semantic collection missing "Light" mode'
+        );
       }
-      if (!modeNames.some((n) => n.toLowerCase().includes("dark"))) {
-        issues.push({
-          severity: "warning",
-          category: "tokens",
-          message: 'Semantic collection missing "Dark" mode',
-        });
+      if (!modeNames.some((n) => n.includes("dark"))) {
+        addIssue("warning", "tokens", 'Semantic collection missing "Dark" mode');
       }
     }
 
-    // 4. Check Text Styles
-    const textStyles = figma.getLocalTextStyles();
+    // ---------- 4. Text styles ----------
+    const textStyles = await figma.getLocalTextStylesAsync();
     stats.textStyles = textStyles.length;
     if (textStyles.length === 0) {
-      issues.push({
-        severity: "error",
-        category: "typography",
-        message: "No text styles defined",
-      });
+      addIssue("error", "typography", "No text styles defined");
     }
 
-    // 5. Check Effect Styles
-    const effectStyles = figma.getLocalEffectStyles();
+    // Flag text styles with zero variable bindings.
+    // Per Critical Rule #4 (v1.2.0): lineHeight percentages can't be bound
+    // to variables, so we only warn when NONE of the bindable fields are bound.
+    let unboundTextStyleCount = 0;
+    for (const ts of textStyles) {
+      const bv = ts.boundVariables || {};
+      if (!bv.fontSize && !bv.lineHeight && !bv.fontFamily && !bv.fontWeight) {
+        unboundTextStyleCount++;
+      }
+    }
+    if (unboundTextStyleCount > 0) {
+      addIssue(
+        "warning",
+        "typography",
+        `${unboundTextStyleCount} text styles have no variable bindings on fontSize/lineHeight/fontFamily/fontWeight`
+      );
+    }
+
+    // ---------- 5. Effect styles ----------
+    const effectStyles = await figma.getLocalEffectStylesAsync();
     stats.effectStyles = effectStyles.length;
 
-    // 6. Check pages
-    stats.pages = figma.root.children.length;
+    // ---------- 6. Pages ----------
     const pageNames = figma.root.children.map((p) => p.name);
     const expectedPages = ["Cover", "Foundations", "Components"];
     for (const expected of expectedPages) {
       if (
-        !pageNames.some((n) => n.toLowerCase().includes(expected.toLowerCase()))
+        !pageNames.some((n) =>
+          n.toLowerCase().includes(expected.toLowerCase())
+        )
       ) {
-        issues.push({
-          severity: "warning",
-          category: "structure",
-          message: `Missing expected page: "${expected}"`,
-        });
+        addIssue(
+          "warning",
+          "structure",
+          `Missing expected page: "${expected}"`
+        );
       }
     }
 
-    // 7. Walk components on all pages
+    // ---------- 7. Component-tree walking ----------
+    // Scope hardcoded-color checks to component trees only. Documentation
+    // frames on Foundations pages often use literal colors intentionally.
+    const FILLABLE_TYPES = new Set([
+      "RECTANGLE",
+      "FRAME",
+      "TEXT",
+      "VECTOR",
+      "ELLIPSE",
+      "STAR",
+      "POLYGON",
+      "BOOLEAN_OPERATION",
+      "INSTANCE",
+      "COMPONENT",
+      "COMPONENT_SET",
+    ]);
+
+    const allComponents = [];
+    const allComponentSets = [];
     for (const page of figma.root.children) {
-      await figma.setCurrentPageAsync(page);
+      allComponents.push(
+        ...page.findAllWithCriteria({ types: ["COMPONENT"] })
+      );
+      allComponentSets.push(
+        ...page.findAllWithCriteria({ types: ["COMPONENT_SET"] })
+      );
+    }
+    stats.components = allComponents.length;
+    stats.componentSets = allComponentSets.length;
 
-      // Count components
-      const walkNode = (node) => {
-        if (node.type === "COMPONENT") stats.components++;
-        if (node.type === "COMPONENT_SET") stats.componentSets++;
+    const hardcodedFillCounts = new Map();
+    const hardcodedStrokeCounts = new Map();
+    const missingAutoLayout = [];
+    const componentsWithUnboundText = [];
 
-        // Check for hardcoded fills on components
-        if (
-          (node.type === "COMPONENT" || node.type === "INSTANCE") &&
-          node.fills &&
-          Array.isArray(node.fills)
-        ) {
-          for (const fill of node.fills) {
-            if (
-              fill.type === "SOLID" &&
-              fill.boundVariables &&
-              Object.keys(fill.boundVariables).length === 0
-            ) {
-              // Solid fill without variable binding
-              // Only flag if it is not white or transparent
-              if (fill.opacity > 0 && !(fill.color.r === 1 && fill.color.g === 1 && fill.color.b === 1)) {
-                issues.push({
-                  severity: "warning",
-                  category: "components",
-                  message: `Hardcoded fill on "${node.name}" in page "${page.name}"`,
-                });
-              }
-            }
+    const auditComponent = (rootNode) => {
+      const label = rootNode.name;
+      let hcFills = 0;
+      let hcStrokes = 0;
+      const unboundTextNodes = [];
+
+      const walk = (node) => {
+        if (FILLABLE_TYPES.has(node.type)) {
+          // Fills
+          if (Array.isArray(node.fills)) {
+            node.fills.forEach((fill, idx) => {
+              if (fill.type !== "SOLID") return;
+              if (fill.visible === false) return;
+              if (fill.opacity === 0) return;
+              if (isPaintBound(node, "fills", fill, idx)) return;
+              // Skip pure white (common default frame fill that often stays unbound)
+              const c = fill.color;
+              const isWhite = c.r === 1 && c.g === 1 && c.b === 1;
+              if (isWhite) return;
+              hcFills++;
+            });
+          }
+          // Strokes
+          if (Array.isArray(node.strokes)) {
+            node.strokes.forEach((stroke, idx) => {
+              if (stroke.type !== "SOLID") return;
+              if (stroke.visible === false) return;
+              if (isPaintBound(node, "strokes", stroke, idx)) return;
+              hcStrokes++;
+            });
           }
         }
 
-        // Check Auto Layout
-        if (
-          node.type === "COMPONENT" &&
-          node.layoutMode === "NONE"
-        ) {
-          issues.push({
-            severity: "warning",
-            category: "components",
-            message: `Component "${node.name}" missing Auto Layout`,
-          });
+        // TEXT component property check.
+        // Skip nodes whose name starts with "." or "_" (private/decorative by convention)
+        // and very short strings (icons, glyphs, single-char labels).
+        if (node.type === "TEXT") {
+          const hasCharRef =
+            node.componentPropertyReferences &&
+            node.componentPropertyReferences.characters;
+          const nodeName = node.name || "";
+          const isPrivate =
+            nodeName.startsWith(".") || nodeName.startsWith("_");
+          const isTinyText =
+            typeof node.characters === "string" && node.characters.length <= 2;
+          if (
+            !hasCharRef &&
+            !isPrivate &&
+            !isTinyText &&
+            node.characters &&
+            node.characters.length > 0
+          ) {
+            unboundTextNodes.push(nodeName || node.characters.slice(0, 20));
+          }
         }
 
         if ("children" in node) {
-          for (const child of node.children) {
-            walkNode(child);
-          }
+          for (const child of node.children) walk(child);
         }
       };
 
-      for (const child of page.children) {
-        walkNode(child);
+      walk(rootNode);
+
+      if (rootNode.type === "COMPONENT" && rootNode.layoutMode === "NONE") {
+        missingAutoLayout.push(label);
+      }
+
+      if (hcFills > 0) hardcodedFillCounts.set(label, hcFills);
+      if (hcStrokes > 0) hardcodedStrokeCounts.set(label, hcStrokes);
+      if (unboundTextNodes.length > 0) {
+        componentsWithUnboundText.push({
+          name: label,
+          sample: unboundTextNodes.slice(0, 3),
+        });
+      }
+    };
+
+    for (const cs of allComponentSets) auditComponent(cs);
+    for (const c of allComponents) {
+      // Skip components that are children of a Component Set — already audited.
+      if (!c.parent || c.parent.type !== "COMPONENT_SET") {
+        auditComponent(c);
       }
     }
 
-    // Cap issues to avoid giant output
-    const cappedIssues = issues.slice(0, 50);
-    const hasMore = issues.length > 50;
+    for (const [name, count] of hardcodedFillCounts) {
+      addIssue("warning", "components", `"${name}" has ${count} hardcoded fill(s)`);
+    }
+    for (const [name, count] of hardcodedStrokeCounts) {
+      addIssue(
+        "warning",
+        "components",
+        `"${name}" has ${count} hardcoded stroke(s)`
+      );
+    }
+    for (const name of missingAutoLayout) {
+      addIssue(
+        "warning",
+        "components",
+        `Component "${name}" missing Auto Layout`
+      );
+    }
+    for (const entry of componentsWithUnboundText) {
+      addIssue(
+        "warning",
+        "components",
+        `"${entry.name}" has text nodes without TEXT component property (overrides lost on update): ${entry.sample.join(", ")}`
+      );
+    }
+
+    // ---------- 8. WCAG contrast ----------
+    // Check all semantic color/text/* × color/bg/* pairs in Light and Dark.
+    // Works with any collection containing variables named color/text/* and
+    // color/bg/* — not just one specifically named "Semantic".
+    const contrastReport = { light: [], dark: [], failures: 0 };
+
+    const textVars = variables.filter((v) => /^color\/text\//i.test(v.name));
+    const bgVars = variables.filter((v) => /^color\/bg\//i.test(v.name));
+
+    const pickModes = (collection) => {
+      if (!collection) return { light: null, dark: null };
+      const light = collection.modes.find((m) =>
+        m.name.toLowerCase().includes("light")
+      );
+      const dark = collection.modes.find((m) =>
+        m.name.toLowerCase().includes("dark")
+      );
+      return { light, dark };
+    };
+
+    // Use the collection of the first text variable as the mode anchor.
+    let anchorCollection = null;
+    if (textVars.length > 0) {
+      anchorCollection = await figma.variables.getVariableCollectionByIdAsync(
+        textVars[0].variableCollectionId
+      );
+    }
+    const { light: lightMode, dark: darkMode } = pickModes(anchorCollection);
+
+    const checkMode = async (mode, label) => {
+      if (!mode) return;
+      for (const tv of textVars) {
+        const tColor = await resolveColorValue(tv, mode.modeId);
+        if (!tColor) continue;
+        for (const bv of bgVars) {
+          const bColor = await resolveColorValue(bv, mode.modeId);
+          if (!bColor) continue;
+          const ratio = contrastRatio(tColor, bColor);
+          const entry = {
+            text: tv.name,
+            bg: bv.name,
+            ratio: Math.round(ratio * 100) / 100,
+            passAA: ratio >= 4.5,
+            passAALarge: ratio >= 3,
+          };
+          contrastReport[label].push(entry);
+          if (!entry.passAALarge) {
+            contrastReport.failures++;
+            if (contrastReport.failures <= 10) {
+              addIssue(
+                "warning",
+                "accessibility",
+                `${label}: "${tv.name}" on "${bv.name}" — contrast ${entry.ratio}:1 (fails WCAG AA Large 3:1)`
+              );
+            }
+          }
+        }
+      }
+    };
+
+    await checkMode(lightMode, "light");
+    await checkMode(darkMode, "dark");
+
+    if (contrastReport.failures > 10) {
+      addIssue(
+        "warning",
+        "accessibility",
+        `+${contrastReport.failures - 10} more contrast failures (see contrast.worstLight / worstDark in output)`
+      );
+    }
+
+    // ---------- Output ----------
+    const CAP = 100;
+    const cappedIssues = issues.slice(0, CAP);
+    const hasMore = issues.length > CAP;
 
     figma.closePlugin(
       JSON.stringify({
@@ -182,6 +538,19 @@
         summary: {
           errors: issues.filter((i) => i.severity === "error").length,
           warnings: issues.filter((i) => i.severity === "warning").length,
+        },
+        contrast: {
+          lightPairs: contrastReport.light.length,
+          darkPairs: contrastReport.dark.length,
+          failures: contrastReport.failures,
+          worstLight: contrastReport.light
+            .filter((p) => !p.passAA)
+            .sort((a, b) => a.ratio - b.ratio)
+            .slice(0, 10),
+          worstDark: contrastReport.dark
+            .filter((p) => !p.passAA)
+            .sort((a, b) => a.ratio - b.ratio)
+            .slice(0, 10),
         },
       })
     );

@@ -6,11 +6,28 @@ Use it to create a design system from scratch, sync one from a codebase, or add 
 
 Built on top of the [Figma MCP server](https://developers.figma.com/docs/figma-mcp-server/) and the `figma-use` skill. Tested on a real production design system (175 variables, 50+ components).
 
+## When to use this vs Claude Design
+
+In April 2026, Anthropic launched [Claude Design](https://claude.ai/design) — a product that creates designs, interactive prototypes, and presentations in its own environment. During onboarding, Claude Design extracts an internal design system from your codebase, slides, or brand assets, and reuses it across projects inside Claude Design.
+
+This skill is for a different scenario: **teams where Figma is the canonical source of truth.** The extracted DS in Claude Design lives inside Claude Design. It's not written to your Figma file, and it doesn't carry the Plugin API features that make a Figma design system production-ready for developer handoff.
+
+| Scenario | Use |
+|----------|-----|
+| Rapid prototypes, pitch decks, marketing collateral in Claude's own environment | [Claude Design](https://claude.ai/design) |
+| Figma file as source of truth for Dev Mode, Code Connect, shared libraries | This skill |
+| Existing Figma DS that needs audit, fixes, or new components | This skill |
+| Multi-brand token architecture with variable modes per brand | This skill |
+| Compliance-heavy context where research-preview tools aren't permitted | This skill |
+| Quick one-off visual for a stakeholder, no Figma needed | [Claude Design](https://claude.ai/design) |
+
+The two can work together: use Claude Design for early exploration and handoff, then use this skill to build the finalized system in Figma with full rigor (explicit scopes, `codeSyntax.WEB`, TEXT component properties, WCAG contrast validation, Auto Layout binding).
+
 ## What it does
 
 The skill walks an AI agent through building or extending a design system in Figma:
 
-**Phase 1 — Discovery.** Analyzes your codebase (if you have one) or collects brand specs from scratch. Accepts `.md` brand guidelines, `.json` design tokens (W3C DTCG, Tokens Studio), screenshots, or URLs as input. If a Figma file already exists, runs a full audit: ALL_SCOPES violations, missing `codeSyntax.WEB`, duplicate variables, unbound fills, text nodes without TEXT component properties. Recommends whether to build in place, start fresh, or take a hybrid approach. Confirms scope before touching anything.
+**Phase 1 — Discovery.** Analyzes your codebase (if you have one) or collects brand specs from scratch. Accepts `.md` brand guidelines, `.json` design tokens (W3C DTCG, Tokens Studio), screenshots, or URLs as input. If a Figma file already exists, runs a structured audit covering: variable collections, ALL_SCOPES violations, missing `codeSyntax.WEB`, duplicate primitives, mode parity, text style bindings, hardcoded color fills and strokes in components, missing Auto Layout, text nodes without TEXT component properties, and WCAG AA contrast for every `color/text/*` × `color/bg/*` pair in both Light and Dark modes. Recommends whether to build in place, start fresh, or take a hybrid approach. Confirms scope before touching anything.
 
 **Phase 2 — Foundations.** Creates variable collections following either a 3-tier architecture (Primitives → Semantic → Component) or flat domain-based collections — whichever matches your existing structure. Sets `codeSyntax.WEB` on every variable for proper design-to-code handoff. Sets up Text Styles and Effect Styles. **Skipped when foundations already exist and pass audit.**
 
@@ -18,7 +35,7 @@ The skill walks an AI agent through building or extending a design system in Fig
 
 **Phase 4 — Components.** Suggests a default core 10 but asks you to confirm based on your actual inventory. Builds each component with full variant matrices, all interactive states, Auto Layout, variable bindings, and TEXT component properties for customizable labels. Validates after every component with `get_metadata` + `get_screenshot`. Wraps each component set in a spec frame with state/size labels for documentation.
 
-**Phase 5 — QA.** Runs a validation script that checks for missing collections, ALL_SCOPES violations, hardcoded fills, missing Auto Layout, and Light/Dark mode coverage. Builds a test page from system components to verify composability.
+**Phase 5 — QA.** Runs the full validation script covering token structure, component bindings, accessibility (WCAG AA contrast), and file organization. Builds a test page from system components to verify composability.
 
 The agent pauses between phases for your review. When foundations already exist, the agent skips directly to components — no need to go through every phase.
 
@@ -26,7 +43,7 @@ The agent pauses between phases for your review. When foundations already exist,
 
 ```
 generate-design-system/
-├── SKILL.md                              # Core instructions (~430 lines)
+├── SKILL.md                              # Core instructions
 ├── references/
 │   ├── token-taxonomy.md                 # Variable architecture, scopes, defaults
 │   ├── component-spec.md                 # Default component specs, states, Auto Layout rules
@@ -37,7 +54,7 @@ generate-design-system/
 │   ├── createComponentWithVariants.js    # Component creation template
 │   ├── bindVariablesToComponent.js       # Systematic variable binding
 │   ├── auditComponentBindings.js         # Binding coverage check
-│   └── validateCreation.js              # Per-component validation
+│   └── validateCreation.js               # Per-component validation
 └── assets/
     └── file-structure-template.md        # Page layout template for the Figma file
 ```
@@ -139,7 +156,7 @@ Audit the design system in [Figma file URL].
 Foundations are done. Need to fix any variable issues, then build the remaining components.
 ```
 
-The agent runs a full audit first (scoping, codeSyntax, bindings), presents findings, recommends a path (fix in place vs start fresh), fixes issues, then continues to the component phase.
+The agent runs a full audit first (scoping, codeSyntax, bindings, WCAG contrast), presents findings, recommends a path (fix in place vs start fresh), fixes issues, then continues to the component phase.
 
 ## Supported frameworks
 
@@ -189,6 +206,8 @@ When starting from scratch, you can provide:
 
 **Why flexible token architecture?** The textbook 3-tier approach (Primitives → Semantic → Component) works for large multi-brand systems. Single-brand systems or existing files often use flat domain-based collections. Forcing a restructure wastes time and breaks existing bindings.
 
+**Why WCAG contrast validation in the audit?** A design system that looks right on the canvas can still fail users with low vision. The validate script checks every semantic `color/text/*` × `color/bg/*` pair in both Light and Dark modes against WCAG AA (4.5:1 for normal text, 3:1 for large text). Failures surface as warnings with the actual ratio so you can trace them back to the semantic pair and decide how to resolve — darken the text, adjust the background, or restrict the pair to large-text-only use cases.
+
 ## Customization
 
 Fork and adapt to your needs. Common changes:
@@ -198,10 +217,11 @@ Fork and adapt to your needs. Common changes:
 - **Company-specific naming:** Edit `references/naming-conventions.md` to match your conventions
 - **Single framework:** Remove irrelevant sections from `references/framework-mappings.md`
 
-## Related skills
+## Related skills and tools
 
-| Skill | When to use instead |
-|-------|---------------------|
+| Tool | When to use instead |
+|------|---------------------|
+| [Claude Design](https://claude.ai/design) | Rapid prototypes, pitch decks, and marketing collateral in Claude's own environment. DS stays inside Claude Design. |
 | `figma-generate-library` | Official Figma skill with a similar workflow, tightly integrated with Figma's own tooling |
 | `figma-generate-design` | Building screens FROM a design system (not building the system itself) |
 | `figma-implement-design` | Generating code FROM Figma designs |
