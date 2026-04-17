@@ -27,7 +27,7 @@ The two can work together: use Claude Design for early exploration and handoff, 
 
 The skill walks an AI agent through building or extending a design system in Figma:
 
-**Phase 1 — Discovery.** Analyzes your codebase (if you have one) or collects brand specs from scratch. Accepts `.md` brand guidelines, `.json` design tokens (W3C DTCG, Tokens Studio), screenshots, or URLs as input. If a Figma file already exists, runs a structured audit covering: variable collections, ALL_SCOPES violations, missing `codeSyntax.WEB`, duplicate primitives, mode parity, text style bindings, hardcoded color fills and strokes in components, missing Auto Layout, text nodes without TEXT component properties, and WCAG AA contrast for every `color/text/*` × `color/bg/*` pair in both Light and Dark modes. Recommends whether to build in place, start fresh, or take a hybrid approach. Confirms scope before touching anything.
+**Phase 1 — Discovery.** Analyzes your codebase (if you have one) or collects brand specs from scratch. Accepts `.md` brand guidelines, `.json` design tokens (W3C DTCG, Tokens Studio), screenshots, or URLs as input. If a Figma file already exists, runs a structured audit covering: variable collections, ALL_SCOPES violations, missing `codeSyntax.WEB`, duplicate primitives (grouped by name domain so cross-domain collisions like `spacing/16` vs `type/size/body` aren't false positives), mode parity, text style bindings, hardcoded color fills and strokes in components, missing Auto Layout, text nodes without TEXT component properties, and WCAG AA contrast for every `color/text/*` × `color/bg/*` pair in both Light and Dark modes (with scope awareness for inverse text tokens like `on-wine`). Recommends whether to build in place, start fresh, or take a hybrid approach. Confirms scope before touching anything.
 
 **Phase 2 — Foundations.** Creates variable collections following either a 3-tier architecture (Primitives → Semantic → Component) or flat domain-based collections — whichever matches your existing structure. Sets `codeSyntax.WEB` on every variable for proper design-to-code handoff. Sets up Text Styles and Effect Styles. **Skipped when foundations already exist and pass audit.**
 
@@ -50,16 +50,12 @@ generate-design-system/
 │   ├── naming-conventions.md             # Figma ↔ code name mapping tables
 │   └── framework-mappings.md             # Token extraction for React, Vue, Svelte, Angular, DTCG
 ├── scripts/
-│   ├── validate-design-system.js         # QA audit script (runs via use_figma)
-│   ├── createComponentWithVariants.js    # Component creation template
-│   ├── bindVariablesToComponent.js       # Systematic variable binding
-│   ├── auditComponentBindings.js         # Binding coverage check
-│   └── validateCreation.js               # Per-component validation
+│   └── validate-design-system.js         # QA audit script (runs via use_figma)
 └── assets/
     └── file-structure-template.md        # Page layout template for the Figma file
 ```
 
-Reference files load on demand. The agent reads `token-taxonomy.md` only when entering Phase 2, `component-spec.md` only in Phase 4, and so on. Helper scripts are referenced directly in the workflow steps where they're needed.
+Reference files load on demand. The agent reads `token-taxonomy.md` only when entering Phase 2, `component-spec.md` only in Phase 4, and so on. Phase 4 component-building patterns (variant creation, binding, validation) are described inline in SKILL.md rather than as separate scripts — the agent composes the needed Plugin API calls per component.
 
 ## Installation
 
@@ -207,6 +203,10 @@ When starting from scratch, you can provide:
 **Why flexible token architecture?** The textbook 3-tier approach (Primitives → Semantic → Component) works for large multi-brand systems. Single-brand systems or existing files often use flat domain-based collections. Forcing a restructure wastes time and breaks existing bindings.
 
 **Why WCAG contrast validation in the audit?** A design system that looks right on the canvas can still fail users with low vision. The validate script checks every semantic `color/text/*` × `color/bg/*` pair in both Light and Dark modes against WCAG AA (4.5:1 for normal text, 3:1 for large text). Failures surface as warnings with the actual ratio so you can trace them back to the semantic pair and decide how to resolve — darken the text, adjust the background, or restrict the pair to large-text-only use cases.
+
+**Why scope-aware contrast pairing?** Inverse text tokens (e.g., `color/text/on-wine`) are designed to sit on filled surfaces of the same family, not on general backgrounds. Testing `on-wine` against `bg/card` produces a guaranteed-to-fail 1:1 ratio that isn't actually a bug — it's a combination that would never be used. The script detects the `on-{surface}` naming pattern and only pairs those tokens with backgrounds whose name contains `{surface}` as a segment (e.g., `bg/wine`, `bg/wine-subtle`).
+
+**Why domain-grouped duplicate detection?** Numeric values collide across token domains without being duplicates. `spacing/16`, `type/size/body`, and `radius/card` can all be 16px without any of them being a mistake — they're three different concepts that happen to share a number. The audit groups duplicate detection by the top-level name domain (`spacing`, `radius`, `type`, `color`) so only same-domain collisions are flagged.
 
 ## Customization
 

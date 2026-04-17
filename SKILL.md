@@ -2,24 +2,21 @@
 name: generate-design-system
 description: >
   Build or extend design systems in Figma — create components with proper variable bindings,
-  validate token coverage, and enforce quality patterns following a structured phased workflow.
-  For teams where Figma is the canonical source of truth for design tokens, components, and
-  developer handoff.
+  validate token coverage, and enforce quality patterns through a phased workflow.
   Use when the user says 'create design system', 'build DS in Figma', 'generate component library',
-  'set up tokens in Figma', 'create variables and components', 'audit my design system',
-  or wants to push a design system from code to Figma.
-  Also use when creating components in a file that already has variables and text styles —
-  the skill ensures proper binding, per-component validation, and spec documentation.
-  Works from scratch, from an existing codebase, or by auditing and extending an existing Figma file.
-  Does NOT implement Figma designs as code — use figma-implement-design for that.
-  Does NOT create individual screens — use figma-generate-design for that.
-  Does NOT extract an internal DS for Claude Design — Claude Design has its own extraction
-  flow at claude.ai/design. Use this skill when Figma is the source of truth.
+  'set up tokens', 'audit my design system', or wants to push a design system from code to Figma.
+  Also use for adding components to a file where variables and text styles already exist.
+  Works from scratch, from a codebase, or by extending an existing file.
+  Do NOT use to generate code from Figma designs (use figma-implement-design),
+  build full-page screens (use figma-generate-design), or extract an internal DS for
+  Claude Design (claude.ai/design).
+  Use this skill whenever the user mentions Figma design systems, tokens, variables,
+  or components, even if they don't explicitly say 'generate design system'.
 compatibility: >
   Requires the figma-use skill to be installed. Requires Figma MCP server (remote) connected.
 metadata:
   mcp-server: figma
-  version: 1.3.0
+  version: 1.3.1
 ---
 
 # Generate design system in Figma
@@ -128,18 +125,20 @@ Read `references/framework-mappings.md` for framework-specific extraction patter
 
 #### 1c. If a Figma file already exists — audit it
 
-Run `scripts/validate-design-system.js` via `use_figma` to get a structured report. The script (v1.3.0+) covers:
+Run `scripts/validate-design-system.js` via `use_figma` to get a structured report. The script (v1.3.1+) covers:
 
-- **Variables:** collections, counts, modes, ALL_SCOPES violations, `codeSyntax.WEB` coverage, duplicate primitive values, mode parity
+- **Variables:** collections, counts, modes, ALL_SCOPES violations, `codeSyntax.WEB` coverage, duplicate primitive values grouped by name domain, mode parity
 - **Text styles:** count and variable binding coverage on `fontSize` / `lineHeight` / `fontFamily` / `fontWeight`
 - **Components:** hardcoded color fills, hardcoded strokes, missing Auto Layout, text nodes lacking TEXT component properties (overrides lost on update)
-- **Page structure:** presence of expected pages (Cover, Foundations, Components)
-- **Accessibility:** WCAG AA contrast for every `color/text/*` × `color/bg/*` pair in both Light and Dark modes. Surfaces up to 10 worst failures as warnings; full matrix returned in `contrast.worstLight` / `contrast.worstDark`.
+- **Page structure:** presence of expected library pages (Cover, Foundations, Components) as informational output, not warnings
+- **Accessibility:** WCAG AA contrast for every `color/text/*` × `color/bg/*` pair in both Light and Dark modes. Inverse text tokens matching `color/text/on-{surface}` are only tested against backgrounds whose name contains `{surface}` as a segment (e.g., `on-wine` × `bg/wine`, `bg/wine-subtle`), not against unrelated surfaces. Surfaces up to 10 worst failures as warnings; full matrix returned in `contrast.worstLight` / `contrast.worstDark`.
+
+**Script invocation:** the script exposes `runAudit()` as its main function and ends with `return await runAudit()` at the top level. Under `use_figma`, which wraps the code in an async context, this returns the audit report directly. For standalone plugin usage, replace the top-level `return` with `runAudit().then((r) => figma.closePlugin(JSON.stringify(r)))`.
 
 Supplement with targeted inspection where the script output needs interpretation or the file has conventions outside the default check set:
 
 - List existing components and their naming patterns.
-- Sample a couple of component sets manually. Use the audit pattern from `scripts/auditComponentBindings.js` (or embed inline):
+- Sample a couple of component sets manually to verify the audit counts are accurate and to surface patterns the script doesn't know about (naming conventions, icon systems, composed components). Example inline pattern:
 
 ```js
 // Audit a component set for variable binding coverage
@@ -180,7 +179,7 @@ for (const variant of cs.children) {
 return { bound, hardcoded, ratio: `${bound}/${bound + hardcoded}` };
 ```
 
-Present the audit report to the user with a severity summary (errors vs warnings) and the contrast report.
+Present the audit report to the user with a severity summary (errors vs warnings vs info) and the contrast report.
 
 **Based on audit results, recommend a path:**
 - **Build in place** — file has solid variable structure, components need fixes but not recreation
@@ -366,7 +365,7 @@ For EACH component, follow this sequence:
 
 - Contains the core structure and Auto Layout
 - All fills, strokes, spacing, radius, and text use Semantic (or Component) variables — see Critical Rule #3 for exceptions on component-specific dimensions
-- Embed `scripts/createComponentWithVariants.js` as a starting template
+- Create it with a single focused `use_figma` call: create the frame, set Auto Layout direction and sizing, bind padding and itemSpacing to Semantic spacing variables, add text nodes, bind fills and strokes to Semantic color variables. Never build on unvalidated work — `get_metadata` + `get_screenshot` after the call before moving on.
 
 **Step 2: Define variant properties**
 
@@ -389,16 +388,17 @@ Start with states, not just the default:
 - Combine variants into a Component Set
 - Verify naming: `Type=Primary, Size=Medium, State=Default` in Figma should correspond to `<Button variant="primary" size="md" />` in code
 
-**Step 5: Bind variables to the component**
+**Step 5: Bind variables across the component**
 
-- Embed `scripts/bindVariablesToComponent.js` to systematically bind all fills, strokes, spacing, and radius
-- Run `scripts/auditComponentBindings.js` (or the inline audit pattern from Phase 1c) to verify binding coverage
+- For each variant, systematically iterate through fills, strokes, itemSpacing, padding, and corner radius
+- Bind to Semantic tokens where a scale value exists (hardcoded exceptions per Critical Rule #3)
+- Verify binding coverage using the inline audit pattern from Phase 1c — paste it in with the specific component set ID to get a `bound / hardcoded` count
 
 **Step 6: Validate and document this component**
 
 - `get_screenshot` — check visual correctness, look for clipped text and overlapping elements
 - `get_metadata` — verify variant count, hierarchy, Auto Layout structure
-- Embed `scripts/validateCreation.js` for automated checks
+- Confirm all variants have the same child node tree (depth, types, names) — mismatches break Component Set mode swaps
 - If issues found: fix targeted parts only, don't recreate from scratch
 - Create a spec wrapper frame around the component set (using the template from Phase 3):
   - Title: component number and name (e.g., "C1.0 BUTTON (PRIMARY)")
@@ -552,6 +552,8 @@ User says: "Variables and text styles are set up. I need to build 7 components w
 **Component numbering divergence:** When rebuilding an existing file, Figma page/component names may follow different numbering than the organizational plan. Both are valid. Document the mapping: plan says "C2.2 Toggle Switch" but Figma name is "C4.0 Toggle Switch" → add a note in the plan entry.
 
 **Contrast failures on brand colors:** If a required brand color pair fails WCAG AA (e.g., brand primary button text on brand primary background), don't silently pass. Options: (a) darken the text or lighten the bg until it passes, (b) restrict the pair to large-text-only use cases and document the restriction, (c) escalate to the brand owner. Don't ship failing pairs without a decision.
+
+**Inverse text tokens (color/text/on-{surface}):** These are designed to sit on a filled surface of the same family (e.g., `on-wine` on `bg/wine` or `bg/wine-subtle`). The validate script automatically skips contrast checks against unrelated surfaces. If you name an inverse token outside the `on-{surface}` pattern, it will be tested against all backgrounds — rename to fit the convention or accept the broader check.
 
 ---
 

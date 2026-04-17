@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.3.1 — 2026-04-17
+
+### Fixed
+
+- **Duplicate primitive detection now groups by name domain.** `spacing/16` and `type/size/body` happen to share the numeric value 16 but are not duplicates. Cross-domain collisions (spacing × radius × type) no longer trigger warnings. Same-domain duplicates (e.g., two spacing variables with the same value) are still flagged. On the Skill Translation Platform DS file (138 variables), this eliminated 6 false-positive warnings.
+- **Scope-aware contrast pairing for inverse text tokens.** Text tokens matching `color/text/on-{surface}` are now tested only against background variables where `{surface}` appears as a name segment (e.g., `color/text/on-wine` × `color/bg/wine`, `color/bg/wine-subtle`). Pairing against unrelated surfaces like `color/bg/card` is skipped — these pairs are not design bugs, they're combinations that would never be used in practice. On the test file this eliminated 10 false-positive contrast failures. A new `contrast.skippedInverseMismatches` count is included in the output.
+- **Foundations / Cover / Components page checks downgraded to info-level.** Product design files that don't follow library structure no longer receive warnings for missing documentation pages. The info-level output still surfaces when pages are absent, so teams building a library can still see the gap — it just doesn't inflate the warning count for product files.
+- **`use_figma` compatibility.** The script is now structured as a named `runAudit()` async function with a top-level `return await runAudit()`. Under `use_figma`, which wraps scripts in an async context, this returns the audit report directly. No more need for agents to manually unwrap an IIFE or swap `closePlugin` calls. For standalone plugin usage, replace the final `return` with `runAudit().then((r) => figma.closePlugin(JSON.stringify(r)))`.
+- **`figma.loadAllPagesAsync` fallback.** If the method is unavailable in the current API surface, the script falls back to iterating `figma.root.children` with `setCurrentPageAsync` per page. This was the adaptation Claude Code made manually during v1.3.0 testing — now it's built in.
+
+### Changed
+
+- **Added "info" severity level** to the audit output, in addition to "error" and "warning". Summary now reports errors, warnings, and info counts separately. Info items don't count against audit cleanliness.
+- **SKILL.md and README.md cleaned up.** Removed references to four helper scripts (`createComponentWithVariants.js`, `bindVariablesToComponent.js`, `auditComponentBindings.js`, `validateCreation.js`) that were introduced as names in v1.2.0 text but never existed as files in the repo. Phase 4 workflow steps now describe what to do inline rather than pointing to non-existent files. The inline audit pattern from Phase 1c is now the single source for binding coverage checks. File structure tree in README corrected to show the one script that actually exists. Agents were already handling this correctly by writing ad-hoc scripts; the cleanup prevents confusion for new users reading the docs.
+- **README gained two new "Design decisions" entries:** "Why scope-aware contrast pairing?" and "Why domain-grouped duplicate detection?" — documenting the rationale for the v1.3.1 audit logic changes.
+- **SKILL.md gained one edge case:** "Inverse text tokens (color/text/on-{surface})" — explains the naming pattern the audit script recognizes and what happens when a token is named outside the pattern.
+
+### Validated on
+
+- Skill Translation Platform DS file (Case 2 Untranslated portfolio project): 138 variables, 77 components, 6 component sets, 10 pages. Audit completed without errors. After v1.3.1 fixes, the previous 16 false-positive warnings (6 cross-domain duplicates, 10 inverse-surface contrast mismatches) are eliminated.
+
+### Notes
+
+No workflow changes. v1.3.1 is a bug-fix release on top of v1.3.0 — all added checks (WCAG contrast, codeSyntax coverage, TEXT property audit) continue to work as described, just with fewer false positives.
+
 ## 1.3.0 — 2026-04-17
 
 ### Added
