@@ -102,6 +102,39 @@ Examples: `Acme Design System v1.0`, `SaaS Kit DS v2.1`
 | Brand A | `Brand A` | `[data-brand="a"]` |
 | Brand B | `Brand B` | `[data-brand="b"]` |
 
+## Slot naming
+
+Named slots use PascalCase. Match these names to the code component's slot/children prop names where possible.
+
+| Slot name | Position |
+|-----------|----------|
+| `Leading` | Left-side element (icon, avatar, image) |
+| `Trailing` | Right-side element (icon, action button) |
+| `Header` | Top section (titles, close buttons) |
+| `Body` | Main content area |
+| `Footer` | Bottom section (actions, metadata) |
+| `Actions` | Button group, typically in modals/cards |
+
+For unusual or domain-specific slot positions, follow the same PascalCase rule and pick a single noun (e.g., `Sidebar`, `Toolbar`). See `slots-guide.md` for usage rules.
+
+## Pattern frame naming
+
+Pattern frames on the Cover page or a dedicated Patterns page use:
+
+```
+P{section}.{number} {Name}
+```
+
+Parallel to the component numbering (`C1.0 Button`). Examples:
+
+- `P1.0 Form layout`
+- `P1.1 Form layout (compact)`
+- `P2.0 Three-column page`
+- `P3.0 Card grid`
+- `P4.0 Modal with actions`
+
+See `patterns-guide.md` for the full structure of a pattern frame.
+
 ## Anti-patterns to avoid
 
 - `btn` instead of `Button` — don't abbreviate component names
@@ -109,3 +142,4 @@ Examples: `Acme Design System v1.0`, `SaaS Kit DS v2.1`
 - `new-button`, `button-v2` — versioning in component names (use the component description field instead)
 - Mixing casing: `primaryButton` alongside `SecondaryButton`
 - Nesting groups deeper than 3 levels in variable names: `color/bg/surface/card/inner` (too deep — flatten)
+- Slot names like `slot-1`, `Container` — slot names must communicate position or role

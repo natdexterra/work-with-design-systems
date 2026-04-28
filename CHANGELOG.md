@@ -1,5 +1,112 @@
 # Changelog
 
+## 2.0.0 — 2026-04-28
+
+Major release. The skill was renamed from `generate-design-system` to `work-with-design-systems` and now covers both inspecting (read-only audits) and building. The previous audit functionality (formerly planned as a separate `audit-design-system` skill) is now an integrated mode. Build mode optionally extends to a new Phase 6 — sync to code — that generates `tokens.css`, AI rules, and audit script for the user's codebase.
+
+### Breaking change: skill renamed
+
+The skill is now `work-with-design-systems`. The old name `generate-design-system` is no longer used.
+
+### If you installed this skill before v2.0.0
+
+The GitHub repo URL still works via redirect (old `generate-design-system` URL → new `work-with-design-systems`), so `git pull` continues to work. But to avoid the deprecation warning and stay aligned:
+
+1. Update your git remote:
+   ```bash
+   cd path/to/your/local/clone
+   git remote set-url origin https://github.com/natdexterra/work-with-design-systems.git
+   ```
+
+2. Rename your skill folder (Claude resolves skills by folder name):
+   ```bash
+   mv .claude/skills/generate-design-system .claude/skills/work-with-design-systems
+   ```
+   Or for global skills:
+   ```bash
+   mv ~/.claude/skills/generate-design-system ~/.claude/skills/work-with-design-systems
+   ```
+
+3. Update any references to `/generate-design-system` in your CLAUDE.md, scripts, or docs to `/work-with-design-systems`.
+
+4. Pull the latest changes.
+
+The skill description updates automatically once Claude reads the new SKILL.md.
+
+### Added
+
+#### Inspect mode (entirely new)
+
+- **Six audit modules.** Token compliance (with severity tiers — errors and warnings), interactive states, WCAG 2.1 AA accessibility, detached instances, naming quality, component descriptions.
+- **Weighted readiness scoring.** Per-component score 0–100 (states ×3, token errors ×2, token warnings ×0.6, accessibility ×1, naming ×0.5).
+- **Three export formats.** Markdown report, JSON for programmatic use, AI prompt for direct input to code generators.
+- **Six inspect scripts.** `scripts/inspect/inventory.js`, `audit-tokens.js` (with severity), `audit-states.js`, `audit-accessibility.js`, `audit-detached.js`, `audit-naming.js`. All read-only.
+- **Mandatory pause after inspect.** Skill always stops with report and waits for explicit user decision before any build action.
+
+#### Build mode additions
+
+- **Phase 6 — Sync to code (optional, OFF by default).** New phase that exports `tokens.css` (three-layer indirection with Light/Dark strategies), AI rules file (`.claude/rules/design-system.md`, `.cursor/rules/design-system.mdc`, or scoped section in `AGENTS.md`), CI-ready Node.js audit script, and optional `specs/patterns/*.md` files. Closes the design-to-code loop end-to-end. Triggers only on explicit user request, accepted Phase 5 closing prompt, or upfront request like "build DS and generate tokens.css". Retrofit scenarios (slot retrofit, partial fixes) never trigger Phase 6.
+- **Slots support (Critical Rule #9).** Compound components (Card, Modal, Dialog, ListItem, ReviewCard) use named slots instead of detach patterns. New Phase 4c "Slot decision" guides when to use variants vs booleans vs instance swap vs slots. New `references/build/slots-guide.md`.
+- **Mandatory component descriptions (Critical Rule #10).** Every public component must have a PURPOSE/BEHAVIOR/COMPOSITION/USAGE/CODE NOTES description. Template in `references/build/component-description-template.md`.
+- **No-detach rule (Critical Rule #11).** Explicit prohibition. If variation needed, use variant / boolean / instance swap / slot.
+- **Patterns documentation (Phase 4d, optional).** Composition patterns (form layouts, page layouts, content flows) get their own page in Figma with annotated examples. New `references/build/patterns-guide.md`.
+- **Story-to-variant parity check.** Phase 1b reads Storybook stories if present in codebase and flags mismatches between stories and Figma variants.
+- **Auto-rename fallback in Phase 1c.** When generic layer names exceed 20% of layers in components, suggests Figma's built-in AI rename before manual work.
+- **Fuzzy auto-fix for hardcoded values.** Optional build-mode operation that binds unbound fills, strokes, paddings, item spacing, and corner radii to existing variables using property-aware fuzzy matching (scope-filtered, similarity-scored, with a Semantic-layer preference boost). New `scripts/build/fixHardcodedToTokens.js` and `references/build/auto-fix-guide.md`. Confidence threshold (default 0.85) determines which bindings apply automatically vs are flagged for manual review. Triggers only when user explicitly requests "auto-fix" — never silently. Closes the inspect → build loop without forcing the user to decide every binding by hand.
+- **Nested components inventory in descriptions.** Component descriptions now include a list of nested component instances (e.g., a Card that contains an Avatar and a Badge). Helps downstream AI tools reason about composition without traversing structure. Added to `references/build/component-description-template.md` as a dedicated section.
+- **Property suggestions in Module 6 (inspect mode).** When generating component descriptions, the skill now reasons about missing component properties (variant vs boolean vs instance swap vs slot) and surfaces suggestions alongside the description. Catches cases like "two near-duplicate variants should be a State property" or "Body content varies between examples — should be a slot." Added as a new section in `references/inspect/component-descriptions.md`.
+
+#### Code-side outputs (Phase 6)
+
+- **`scripts/build/exportTokensToCSS.js`** — reads all variables and modes via Plugin API, returns structured JSON for `tokens.css` generation.
+- **`references/build/code-export.md`** — full templates for: three-layer `tokens.css` with three Light/Dark strategies (`[data-theme]`, `@media (prefers-color-scheme)`, both), Node.js audit script with errors/warnings tiers, AI rules templates for Claude Code / Cursor / Codex, optional `specs/patterns/*.md` template.
+- **Format detection in Phase 6a.** Auto-detects client by project structure (`.claude/` → Claude Code, `.cursor/` → Cursor, `AGENTS.md` → Codex).
+- **Scoped output paths.** Never overwrites top-level `CLAUDE.md`, `AGENTS.md`, or full `.cursor/rules`. Writes to `.claude/rules/design-system.md`, `.cursor/rules/design-system.mdc`, or scoped section in `AGENTS.md` with explicit start/end markers.
+- **Inline output fallback.** If running in environment without file write tools (Claude.ai web), Phase 6 outputs file contents in fenced code blocks with clear save-as headers.
+
+#### Architecture
+
+- **Two modes.** Inspect (read-only) and Build (write), with mandatory pause between them. Build optionally extends to Phase 6.
+- **Subfolder structure.** `references/inspect/`, `references/build/`, `scripts/inspect/`, `scripts/build/`. Each mode loads only its own references and scripts.
+- **Mode router in SKILL.md.** Auto-detects mode from request, asks if ambiguous, defaults to inspect-first when explicitly mixed.
+- **New build workflow path: "Code export only."** For users with solid Figma DS who just want Phase 6 outputs.
+
+### Changed
+
+- **Renamed `references/audit-scripts.md`** (which previously contained all audit code as inline JS blocks) into individual `.js` files under `scripts/inspect/`. Old markdown file becomes overview-only documentation.
+- **Renamed Phase 1c from "audit" to "quick health check".** Phase 1c is a fast sanity check during build mode, not a full audit. For comprehensive audits, switch to inspect mode.
+- **Renamed workflow path "Audit only" to "Fix foundations only".** Matches the new scope split.
+- **Updated description trigger list.** Now triggers on inspect keywords (audit, check, score, WCAG, find detached), build keywords (create, build, generate, sync, add slots), and Phase 6 keywords (export tokens, sync to code, generate CLAUDE.md).
+- **Phase 4 component creation sequence.** Description writing is now an explicit step.
+- **Examples expanded.** Added examples for inspect mode, inspect→build flow, slot retrofit, end-to-end build with Phase 6, code export only.
+- **Module 1 (token compliance) now outputs errors and warnings separately.** Errors: unbound fills/strokes/spacing/radii. Warnings: raw opacity, blur, durations.
+- **Existing build references moved to `references/build/`.** `token-taxonomy.md`, `component-spec.md`, `naming-conventions.md`, `framework-mappings.md` now live under the build subfolder. Git history preserved via `git mv`.
+- **`scripts/validate-design-system.js` moved to `scripts/build/validate-design-system.js`.** Same content; only the path changed. Phase 5 still references it.
+- **`component-spec.md` extended** with a "Slot decision" section covering compound components.
+- **`naming-conventions.md` extended** with PascalCase slot names (Leading, Trailing, Header, Body, Footer, Actions) and pattern frame names (`P{section}.{number} {Name}`).
+- **`framework-mappings.md` extended** with a Storybook stories detection section.
+
+### Fixed
+
+#### Audit scripts (carried over from internal audit-design-system development)
+
+- **Template literal spacing.** Removed extraneous spaces inside `${...}` and trailing spaces before closing backticks throughout all audit scripts.
+- **Touch target check now finds Default variant correctly.** Was previously using `cs.children[0]`, which is not necessarily the Default variant. Now searches by `State=Default` with fallback.
+- **Detached instances scanner restores currentPage.** Was leaving the user on the last scanned page. Now saves and restores `figma.currentPage`.
+- **Inventory script restores currentPage.** Same fix as above for consistency.
+- **fontWeight check uses fontName.style only.** Removed incorrect `textNode.fontWeight >= 700` check (Figma TEXT nodes don't have a `fontWeight` property — only `fontName.style`).
+- **Token compliance dedupe key now includes value.** Two distinct hex values on the same logical layer no longer collapse to a single entry.
+- **Focus indicator check is gated to interactive components.** For non-interactive types (Card, Badge, Avatar) the check is no longer added to the totals — it would always fail and skew the percentage.
+
+### Notes
+
+- Existing build workflows continue to work. The renaming and reorganization don't change build behavior.
+- Phase 6 is opt-in only. If you don't want code export, you'll never see it — the skill stops at Phase 5 unless you explicitly request more.
+- For files that don't have compound components or Storybook, most new content is advisory and won't change the workflow materially.
+- The previous v1.3.1 release of `generate-design-system` remains accessible via git tag `v1.3.1` if you need to roll back.
+
+---
+
 ## 1.3.1 — 2026-04-17
 
 ### Fixed

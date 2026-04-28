@@ -174,3 +174,50 @@ If the codebase has no clear token or component system:
 2. Propose a default spacing scale (4px base)
 3. Propose Inter as the default font
 4. Build the system from scratch using the defaults in `token-taxonomy.md`
+
+---
+
+## Storybook stories
+
+If the project has Storybook, stories are the highest-fidelity source of truth for component variants and states — they document exactly which prop combinations exist in real use.
+
+### Detection
+
+Look for these signals, in order:
+
+- `.storybook/main.{js,ts}` config file in repo root
+- `*.stories.{tsx,jsx,mdx,ts,js}` files alongside components
+- `@storybook/*` packages in `package.json` dependencies
+- A `storybook` or `build-storybook` script in `package.json`
+
+If any are present, read the stories before generating Figma variants.
+
+### What to extract from stories
+
+For each component, scan its `*.stories.tsx`:
+
+- **`meta.title`** → component archetype and category (e.g., `Inputs/Button` → category Inputs, name Button)
+- **`meta.argTypes`** → variant property names and value sets. `argTypes.variant.options` gives the variant axis directly.
+- **Named exports** (one per `Story`) → real usage examples. Each export's `args` shows a concrete combination (`{ variant: 'primary', size: 'md', disabled: true }`) — these become Figma variants.
+- **`parameters.docs.description.component`** → component description (PURPOSE/USAGE). Pull straight into the Figma description if it exists.
+- **`play` functions** → interaction states (hover, focus, click). The selectors and assertions describe how the component behaves under interaction; useful for the BEHAVIOR section of the description.
+
+### Mapping rules
+
+| Storybook concept | Figma equivalent |
+|-------------------|------------------|
+| `argTypes.<prop>.options` | Variant property values |
+| Boolean `argTypes` | Boolean property |
+| `argTypes.<prop>.control: 'select'` with limited options | Variant property |
+| `argTypes.<prop>.control: 'text'` | TEXT property |
+| `argTypes.<prop>.control: 'object'` (icons, slots) | Instance swap or slot |
+| Story export with unique `args` | Specific variant in the component set |
+| MDX `<Canvas>` blocks | Pattern frames (see `patterns-guide.md`) |
+
+### Stories drive completeness
+
+The set of stories defines the minimum variants that must exist in Figma. If Storybook has `Primary`, `Secondary`, `Disabled`, and `WithIcon` stories, the Figma component set must cover all four. Inspect mode (Module 2 — Interactive states) flags missing variants the same way.
+
+### When stories conflict with code defaults
+
+If a component's TypeScript prop default differs from the most common story `args`, prefer the story. Stories reflect designed usage; defaults are sometimes leftovers.

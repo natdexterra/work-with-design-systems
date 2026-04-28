@@ -175,3 +175,23 @@ Prefix private components with `.` (Figma hides them from the Assets panel):
 - `.FormFieldWrapper` — label + input + helper text
 
 Public components instance the private base and add variant-specific overrides.
+
+## Slot decision (mandatory for compound components)
+
+Before building any compound component (Card, Modal, Dialog, Drawer, ListItem, Toast), make an explicit slot decision and record it in the component description.
+
+For each customizable region, walk the variation decision tree from `slots-guide.md`:
+
+1. **Variant** — for fixed appearance changes
+2. **Boolean** — for show/hide of a known element
+3. **Instance swap** — for one predictable position
+4. **Named slot** — for arbitrary user-provided content
+
+If the answer for any region is "named slot," the component must use real slots (Plugin API). Detach-as-workaround is forbidden under Critical Rule #11.
+
+Document the decision per region in COMPOSITION:
+- Slot `Leading`: accepts any component, hidden when empty (chose slot because consumer determines content)
+- Title: TEXT property (chose property because content is always text)
+- Trailing icon: instance swap property (chose swap because position is fixed and type is known)
+
+If the Plugin API in the current environment does not yet expose slot creation, fall back to a documented boolean + instance swap pattern and note in the description that the component will migrate to true slots when API support lands. See `slots-guide.md` for the full decision tree, naming convention (Leading / Trailing / Header / Body / Footer / Actions), and fallback rules.

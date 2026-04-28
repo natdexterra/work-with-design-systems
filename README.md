@@ -1,103 +1,149 @@
-# generate-design-system
+# work-with-design-systems
 
-An MCP skill for building and extending design systems in Figma: tokens, variables, text styles, and components with proper variable bindings, all through a structured phased workflow. Works with Claude Code, Cursor, and Codex.
+A Claude skill for working with Figma design systems — two modes in one place: **inspect** (read-only audits with WCAG checks, component scoring, handoff docs) and **build** (creating components, fixing foundations, adding slots, writing descriptions). Build mode optionally extends to **Phase 6 (sync to code)** — generates `tokens.css`, an audit script, and AI rules file for your codebase.
 
-Use it to create a design system from scratch, sync one from a codebase, or add components to a file where variables and text styles already exist. The skill ensures proper binding, per-component validation, and spec documentation regardless of the starting point.
+Works with Claude Code, Cursor, and Codex.
 
-Built on top of the [Figma MCP server](https://developers.figma.com/docs/figma-mcp-server/) and the `figma-use` skill. Tested on a real production design system (175 variables, 50+ components).
+## What's new in v2.0
 
-## When to use this vs Claude Design
+This is a major release. The skill was previously called `generate-design-system` and only handled building. Now it covers the full lifecycle: inspect existing files, decide what to build or fix, optionally export to code. Between inspect and build, the skill always pauses for your decision. Phase 6 is OFF by default and only triggers on explicit request.
 
-In April 2026, Anthropic launched [Claude Design](https://claude.ai/design) — a product that creates designs, interactive prototypes, and presentations in its own environment. During onboarding, Claude Design extracts an internal design system from your codebase, slides, or brand assets, and reuses it across projects inside Claude Design.
+**Migration from v1.x:** see CHANGELOG for the migration note. Repo URL has changed but old links redirect automatically.
 
-This skill is for a different scenario: **teams where Figma is the canonical source of truth.** The extracted DS in Claude Design lives inside Claude Design. It's not written to your Figma file, and it doesn't carry the Plugin API features that make a Figma design system production-ready for developer handoff.
-
-| Scenario | Use |
-|----------|-----|
-| Rapid prototypes, pitch decks, marketing collateral in Claude's own environment | [Claude Design](https://claude.ai/design) |
-| Figma file as source of truth for Dev Mode, Code Connect, shared libraries | This skill |
-| Existing Figma DS that needs audit, fixes, or new components | This skill |
-| Multi-brand token architecture with variable modes per brand | This skill |
-| Compliance-heavy context where research-preview tools aren't permitted | This skill |
-| Quick one-off visual for a stakeholder, no Figma needed | [Claude Design](https://claude.ai/design) |
-
-The two can work together: use Claude Design for early exploration and handoff, then use this skill to build the finalized system in Figma with full rigor (explicit scopes, `codeSyntax.WEB`, TEXT component properties, WCAG contrast validation, Auto Layout binding).
+Highlights:
+- **Two modes** — inspect (read-only) and build (write), with mandatory pause between
+- **Phase 6 — sync to code (optional, off by default)** — generates `tokens.css` with three-layer indirection, AI rules file (Claude Code / Cursor / Codex), and CI-ready audit script. Closes the design-to-code loop.
+- **Slots support** for compound components (Card, Modal, Dialog) — replaces detach patterns
+- **Mandatory structured component descriptions** — Figma MCP passes them to agents as context
+- **Six audit modules** — token compliance (with severity tiers), interactive states, WCAG accessibility, detached instances, naming quality, component descriptions
+- **Weighted readiness scoring** — score each component 0–100 (errors weighted 1.0, warnings 0.3)
+- **Three export formats** — markdown, JSON, AI prompt for code generation
+- **Patterns guide** — how to document composition patterns in Figma (and optionally export them as spec files to repo)
+- **Story-to-variant parity check** when codebase has Storybook
+- **Auto-rename suggestion** when generic layer names exceed 20%
 
 ## What it does
 
-The skill walks an AI agent through building or extending a design system in Figma:
+The skill auto-detects mode from your request (or asks if unclear).
 
-**Phase 1 — Discovery.** Analyzes your codebase (if you have one) or collects brand specs from scratch. Accepts `.md` brand guidelines, `.json` design tokens (W3C DTCG, Tokens Studio), screenshots, or URLs as input. If a Figma file already exists, runs a structured audit covering: variable collections, ALL_SCOPES violations, missing `codeSyntax.WEB`, duplicate primitives (grouped by name domain so cross-domain collisions like `spacing/16` vs `type/size/body` aren't false positives), mode parity, text style bindings, hardcoded color fills and strokes in components, missing Auto Layout, text nodes without TEXT component properties, and WCAG AA contrast for every `color/text/*` × `color/bg/*` pair in both Light and Dark modes (with scope awareness for inverse text tokens like `on-wine`). Recommends whether to build in place, start fresh, or take a hybrid approach. Confirms scope before touching anything.
+**Inspect mode** — read-only. Runs audit modules:
 
-**Phase 2 — Foundations.** Creates variable collections following either a 3-tier architecture (Primitives → Semantic → Component) or flat domain-based collections — whichever matches your existing structure. Sets `codeSyntax.WEB` on every variable for proper design-to-code handoff. Sets up Text Styles and Effect Styles. **Skipped when foundations already exist and pass audit.**
+- **Module 1 — Token compliance.** Variable binding coverage. Errors: unbound fills, strokes, padding, gaps, corner radii. Warnings: raw opacity, blur radius, animation durations. Text nodes without text styles flagged separately.
+- **Module 2 — Interactive states.** Compares variants against expected state matrices per component type. Missing states (Pressed on Button, Error on Input) listed with full expected set.
+- **Module 3 — Accessibility.** Computed WCAG 2.1 AA checks. Color contrast (4.5:1 normal, 3:1 large). Touch target (44×44px minimum for interactive). Font size warnings <12px, errors <10px. Focus indicator presence.
+- **Module 4 — Detached instances.** Scans all pages for frames matching component names but not instances. Reports with page, parent path, node ID.
+- **Module 5 — Naming quality.** Flags generic Figma auto-names (Frame 47, Rectangle 3) inside components.
+- **Module 6 — Component descriptions.** Generates structured documentation per component (PURPOSE, BEHAVIOR, COMPOSITION, USAGE, CODE NOTES). Uses reasoning rather than computation.
 
-**Phase 3 — File structure.** Organizes the Figma file into standard pages: Cover, Getting Started, Foundations (with rendered swatches, type specimens, spacing scale), and one page per component group. Creates a reusable Page Title component for consistency. Component pages use a fixed-width (996px) wrapper structure with spec containers. **Skipped when documentation pages aren't required.**
+Score formula:
 
-**Phase 4 — Components.** Suggests a default core 10 but asks you to confirm based on your actual inventory. Builds each component with full variant matrices, all interactive states, Auto Layout, variable bindings, and TEXT component properties for customizable labels. Validates after every component with `get_metadata` + `get_screenshot`. Wraps each component set in a spec frame with state/size labels for documentation.
+```
+Score = (tokens_errors × 2 + tokens_warnings × 0.6 + states × 3 + accessibility × 1 + naming × 0.5) / 7.1 × 100
+```
 
-**Phase 5 — QA.** Runs the full validation script covering token structure, component bindings, accessibility (WCAG AA contrast), and file organization. Builds a test page from system components to verify composability.
+State coverage weighted heaviest because missing states cause the most downstream breakage in generated code.
 
-The agent pauses between phases for your review. When foundations already exist, the agent skips directly to components — no need to go through every phase.
+After inspect, the skill ALWAYS pauses with the report and waits for your decision before any changes.
+
+**Build mode** — write. Six-phase workflow (Phase 6 optional):
+
+- **Phase 1 — Discovery.** Analyzes codebase or collects specs from scratch. Accepts .md brand guidelines, .json tokens (W3C DTCG, Tokens Studio), screenshots, URLs. If file exists, runs quick health check (not full audit — for that, use inspect mode). Recommends path: build in place, new file, hybrid, code export only.
+- **Phase 2 — Foundations.** Variable collections (3-tier or flat domain-based — both supported). Light/Dark modes (and multi-brand). Text styles, effect styles. Sets codeSyntax.WEB on every variable. Skipped when foundations exist and pass health check.
+- **Phase 3 — File structure.** Standard pages: Cover, Getting Started, Foundations, one per component group, Patterns (optional), Utilities. Reusable Page Title component. Component pages use fixed-width (996px) wrapper. Skipped when documentation pages not required.
+- **Phase 4 — Components.** Suggests core 10, you confirm. For atoms (Button, Input, Checkbox), full variant matrices with all states, Auto Layout, variable bindings, TEXT properties. For compound (Card, Modal, Dialog), runs slot decision — named slots replace detach patterns. Writes structured description for every public component. Validates after each component. Optional Phase 4d documents composition patterns.
+- **Phase 5 — QA.** Validation script checks for missing collections, ALL_SCOPES violations, hardcoded fills, missing Auto Layout, Light/Dark coverage, missing descriptions, missing slot decisions. Builds test page to verify composability. Closes with optional Phase 6 prompt.
+- **Phase 6 — Sync to code (optional, OFF by default).** Generates `tokens.css` with three-layer indirection (upstream → project aliases with fallback → components reference aliases), CI-ready Node.js audit script, and AI rules file (`.claude/rules/design-system.md`, `.cursor/rules/design-system.mdc`, or `AGENTS.md` section). Light/Dark via `[data-theme]`, `@media (prefers-color-scheme)`, or both. Triggers only on explicit user request.
+
+The skill pauses between phases for your review.
 
 ## File structure
 
 ```
-generate-design-system/
+work-with-design-systems/
 ├── SKILL.md                              # Core instructions
+├── README.md
+├── CHANGELOG.md
+├── LICENSE
+│
 ├── references/
-│   ├── token-taxonomy.md                 # Variable architecture, scopes, defaults
-│   ├── component-spec.md                 # Default component specs, states, Auto Layout rules
-│   ├── naming-conventions.md             # Figma ↔ code name mapping tables
-│   └── framework-mappings.md             # Token extraction for React, Vue, Svelte, Angular, DTCG
+│   ├── inspect/                          # Inspect mode reference docs
+│   │   ├── overview.md
+│   │   ├── token-compliance.md
+│   │   ├── interactive-states.md
+│   │   ├── accessibility.md
+│   │   ├── detached-instances.md
+│   │   ├── naming-quality.md
+│   │   ├── component-descriptions.md
+│   │   ├── readiness-scoring.md
+│   │   └── report-templates.md
+│   │
+│   └── build/                            # Build mode reference docs
+│       ├── token-taxonomy.md
+│       ├── component-spec.md
+│       ├── naming-conventions.md
+│       ├── framework-mappings.md
+│       ├── slots-guide.md
+│       ├── component-description-template.md
+│       ├── patterns-guide.md             # Composition patterns in Figma
+│       └── code-export.md                # Phase 6 — tokens.css, audit, AI rules
+│
 ├── scripts/
-│   └── validate-design-system.js         # QA audit script (runs via use_figma)
+│   ├── inspect/                          # Inspect mode scripts (read-only)
+│   │   ├── inventory.js
+│   │   ├── audit-tokens.js               # With severity tiers
+│   │   ├── audit-states.js
+│   │   ├── audit-accessibility.js
+│   │   ├── audit-detached.js
+│   │   └── audit-naming.js
+│   │
+│   └── build/                            # Build mode scripts (write)
+│       ├── validate-design-system.js     # Final QA validation
+│       ├── exportTokensToCSS.js          # Phase 6a — read variables for export
+│       └── fixHardcodedToTokens.js       # Fuzzy auto-fix for inspect → build flow
+│
 └── assets/
-    └── file-structure-template.md        # Page layout template for the Figma file
+    └── file-structure-template.md
 ```
 
-Reference files load on demand. The agent reads `token-taxonomy.md` only when entering Phase 2, `component-spec.md` only in Phase 4, and so on. Phase 4 component-building patterns (variant creation, binding, validation) are described inline in SKILL.md rather than as separate scripts — the agent composes the needed Plugin API calls per component.
+Reference and script files load on demand. Inspect mode loads `references/inspect/` and `scripts/inspect/`. Build mode loads `references/build/` and `scripts/build/`. Phase 6 specifically loads `code-export.md` and `exportTokensToCSS.js`. Critical rules in SKILL.md apply to all modes.
 
 ## Installation
 
 ### Claude Code
 
-```
+```bash
 # Copy into your project
-cp -r generate-design-system/ .claude/skills/generate-design-system/
+cp -r work-with-design-systems/ .claude/skills/work-with-design-systems/
 
 # Or install globally (available across all projects)
-cp -r generate-design-system/ ~/.claude/skills/generate-design-system/
+cp -r work-with-design-systems/ ~/.claude/skills/work-with-design-systems/
 
 # Or clone directly
-git clone https://github.com/natdexterra/generate-design-system.git .claude/skills/generate-design-system
+git clone https://github.com/natdexterra/work-with-design-systems.git .claude/skills/work-with-design-systems
 ```
 
-Then invoke with `/generate-design-system` in Claude Code chat.
+Then invoke with `/work-with-design-systems` in Claude Code chat.
 
 ### Cursor
 
+```bash
+cp -r work-with-design-systems/ .cursor/skills/work-with-design-systems/
 ```
-cp -r generate-design-system/ .cursor/skills/generate-design-system/
-```
-
-Invoke with `/generate-design-system` or let Cursor auto-detect from the skill description.
 
 ### Codex
 
+```bash
+cp -r work-with-design-systems/ skills/work-with-design-systems/
 ```
-cp -r generate-design-system/ skills/generate-design-system/
-```
-
-Or use `$skill-creator` to register it.
 
 ### Compatibility
 
-The skill is a set of Markdown and JavaScript files — it's not tied to any specific IDE. Confirmed working with:
+The skill is a set of Markdown and JavaScript files — not tied to any specific IDE. Confirmed working with:
 - Claude Code (terminal and VS Code extension)
 - Cursor
 - Codex
 
-Expected to work with any MCP client that supports skill loading (VS Code Insiders, Windsurf, etc.).
+Phase 6 (sync to code) requires file write access. Available in Claude Code, Cursor, Codex, and similar MCP clients with file tools. When run from Claude.ai web/mobile, Phase 6 outputs file contents inline for manual saving.
 
 ### Prerequisites
 
@@ -106,58 +152,118 @@ Expected to work with any MCP client that supports skill loading (VS Code Inside
 
 ## Usage
 
-### From scratch (no codebase)
+### Inspect — full audit
 
 ```
-/generate-design-system
+/work-with-design-systems
+
+Audit my design system file for quality issues.
+```
+
+The skill inventories the file, runs all six modules, produces a full report, then stops and waits for your decision.
+
+### Inspect — narrow scope
+
+```
+/work-with-design-systems
+
+Check WCAG compliance on Button and Input only.
+```
+
+Only Module 3 runs on the specified components.
+
+### Inspect — pre-handoff documentation
+
+```
+/work-with-design-systems
+
+Generate component documentation for developer handoff.
+```
+
+Modules 1 and 6 run. Output: markdown + JSON bundle with structured component specs.
+
+### Build — from scratch
+
+```
+/work-with-design-systems
 
 Create a design system for a fintech product.
 Brand color: #6366F1 (indigo). Font: Inter.
 Need Light and Dark modes.
 ```
 
-You can also feed it a `.md` file with brand guidelines or a `.json` with design tokens (W3C DTCG format, Tokens Studio format) as a starting point.
+Build mode, full build path. Asks to confirm colors, spacing, component list before building.
 
-The agent will ask you to confirm colors, spacing scale, and component list before building anything.
+You can feed it `.md` brand guidelines or `.json` tokens (W3C DTCG, Tokens Studio) instead of typing specs.
 
-### From an existing codebase
+### Build — from existing codebase
 
 ```
-/generate-design-system
+/work-with-design-systems
 
 Sync our component library to Figma.
 Tokens: tailwind.config.ts
 Components: src/components/ui/
 ```
 
-The agent reads your token files and component props, then maps them to Figma Variables and component variants.
+Reads token files and component props, maps to Figma Variables and component variants. Reads Storybook stories if present.
 
-### Extending an existing file (variables exist, need components)
+### Build — extending an existing file
 
 ```
-/generate-design-system
+/work-with-design-systems
 
 Variables and text styles are set up in [Figma file URL].
 Need to build 7 components with proper bindings.
 ```
 
-The agent runs an audit to verify variable quality, then skips directly to building components — no need to recreate foundations. Every component gets validated after creation.
+Health check on variables, then builds components — no need to recreate foundations.
 
-### Auditing an existing Figma file
+### Build — adding slots to existing components
 
 ```
-/generate-design-system
+/work-with-design-systems
 
-Audit the design system in [Figma file URL].
-Foundations are done. Need to fix any variable issues, then build the remaining components.
+Our Card component keeps getting detached because users need different inner content.
+Add slots to it.
 ```
 
-The agent runs a full audit first (scoping, codeSyntax, bindings, WCAG contrast), presents findings, recommends a path (fix in place vs start fresh), fixes issues, then continues to the component phase.
+Reads current Card structure, proposes slot positions based on detach patterns, updates in place. Existing instances continue to work. Phase 6 not offered (retrofit scope).
+
+### Build — end-to-end with code export
+
+```
+/work-with-design-systems
+
+Create a design system for fintech app, indigo primary, Inter, Light+Dark —
+and generate tokens.css and CLAUDE.md when done.
+```
+
+Full build path through Phase 5, then proceeds directly to Phase 6 (because user opted in upfront). Outputs `tokens.css` with three-layer indirection, `.claude/rules/design-system.md` with component list and token reference, `scripts/token-audit.js` for CI.
+
+### Code export only
+
+```
+/work-with-design-systems
+
+My Figma DS is solid. Just generate tokens.css and CLAUDE.md for my repo.
+```
+
+Phase 1c health check on variables. If foundations are valid (scopes set, codeSyntax present), skips Phases 2-5 and runs Phase 6 directly. If foundations are broken, refuses and recommends fixing them first.
+
+### Inspect → build (most common)
+
+```
+/work-with-design-systems
+
+I have a 6-month-old Figma file. Need to figure out what's broken and fix what's worth fixing.
+```
+
+Runs inspect first, presents report, pauses for your decision on what to fix. Then enters build mode with your scoped instructions.
 
 ## Supported frameworks
 
-The `references/framework-mappings.md` file contains token extraction patterns for:
-
+`references/build/framework-mappings.md` contains token extraction patterns for:
 - React + Tailwind CSS (including shadcn/ui with `cva`)
 - React + CSS Modules / styled-components
 - Vue 2/3 with any CSS approach
@@ -166,11 +272,11 @@ The `references/framework-mappings.md` file contains token extraction patterns f
 - W3C Design Tokens (DTCG JSON format)
 - Tokens Studio format
 
-For unsupported setups, the agent falls back to collecting specs manually and building from scratch.
+For unsupported setups, the skill falls back to collecting specs manually.
 
 ## Supported inputs
 
-When starting from scratch, you can provide:
+When starting from scratch:
 
 | Input | Format |
 |-------|--------|
@@ -179,61 +285,88 @@ When starting from scratch, you can provide:
 | Visual references | Screenshots, URLs |
 | Verbal spec | Colors, fonts, spacing values in chat |
 | Codebase | Tailwind config, CSS variables, theme files, component directories |
+| Storybook | `.stories.{ts,tsx,js,jsx,mdx}` files for variant parity check |
+
+## Phase 6 outputs
+
+When Phase 6 runs, you get:
+
+| File | Path | Purpose |
+|------|------|---------|
+| `tokens.css` | Project root or `src/styles/` | All design tokens with three-layer indirection |
+| AI rules | `.claude/rules/design-system.md` (Claude Code) | Read by AI agent at session start |
+| AI rules | `.cursor/rules/design-system.mdc` (Cursor) | Same, Cursor format |
+| AI rules | `## Design system` section in `AGENTS.md` (Codex) | Same, with start/end markers |
+| Audit script | `scripts/token-audit.js` | CI-ready, exit code 1 on hardcoded values |
+| Patterns (opt) | `specs/patterns/*.md` | Hardik Pandya-style composition specs |
+
+The audit script flags errors (hardcoded colors, raw spacing, raw radii) separately from warnings (raw transition durations, z-index values). CI pipelines exit on errors but allow warnings.
 
 ## Design decisions
 
-**Why 3-tier tokens (when used)?** Primitives hold raw values. Semantic tokens alias primitives and carry meaning (`color/bg/primary` instead of `color/blue-500`). Components bind to Semantic tokens only. Switching from Light to Dark mode requires zero component changes — you swap the Semantic layer. For single-brand systems or rebuilds, flat domain-based collections (Colors, Spacing, Radius) are equally valid. The skill supports both.
+**Why two modes in one skill?** A common workflow is inspect → decide → build. Splitting into two skills means manual switching and broken context between sessions. One skill with explicit modes preserves the flow while still enforcing read-only safety in inspect.
 
-**Why explicit variable scopes?** Figma's default `ALL_SCOPES` pollutes every property picker. A spacing variable showing up in the color picker is confusing. The skill sets scopes explicitly: background colors get `FRAME_FILL` + `SHAPE_FILL`, text colors get `TEXT_FILL`, spacing gets `GAP` + `WIDTH_HEIGHT`.
+**Why mandatory pause between inspect and build?** Inspect mode's value is producing a report you can act on. Auto-chaining to build defeats the purpose — you'd never see the report. The pause is the core guarantee.
 
-**Why states before default?** Most incomplete design systems ship a "happy path" Button and forget Disabled, Error, and Loading states. The component spec requires all states upfront. A component without its full state matrix is not done.
+**Why is Phase 6 off by default?** Phase 6 writes files outside Figma. That's a different scope than the rest of the skill. Auto-running it on every build would be intrusive and break retrofit scenarios (slot retrofit shouldn't regenerate `tokens.css` and overwrite the user's audit script). The default offer at end of QA gives users opt-in opportunity without forcing it.
 
-**Why private base components?** Prefixing with `.` hides internal structure from the Assets panel. Public components instance the private base, so updating padding or layout in one place propagates everywhere.
+**Why three-layer indirection in tokens.css?** Layer 1 holds upstream design system tokens (Atlaskit, Material, Carbon — if used). Layer 2 holds project aliases that reference Layer 1 with raw values as fallback (`var(--ds-text, #292A2E)`). Components only reference Layer 2. If upstream renames a token, you fix one alias. If upstream is unreachable, the fallback keeps the project running.
 
-**Why codeSyntax on every variable?** Without `codeSyntax.WEB`, agents using `get_design_context` get raw Figma variable names instead of CSS token names. Setting it on creation means the design-to-code bridge works from day one.
+**Why scoped AI rules paths?** Top-level `CLAUDE.md`, `AGENTS.md`, and full `.cursor/rules` are user-managed files often containing custom instructions for the project. Overwriting them is destructive. Scoped paths (`.claude/rules/design-system.md`, etc.) live alongside other rules and don't conflict.
 
-**Why TEXT component properties?** Without them, changing a button label from "Label" to "Submit" reverts on component update. TEXT properties with `componentPropertyReferences` preserve overrides across updates.
+**Why weighted scoring?** A Button missing its Pressed state breaks user interaction more severely than a generic layer name. State gaps score ×3, token errors ×2, accessibility ×1, naming ×0.5. Token warnings score ×0.6 (less than errors but not zero).
 
-**Why spec wrapper frames?** A component set without labels is a grid of unlabeled boxes. Spec frames add state names as column headers and size names as row labels, making the variant matrix readable for anyone opening the file.
+**Why slots over detach?** Detached frames are structurally invisible to agents and to inspect mode. Slots give explicit dropzones for variable content while keeping the component intact. Figma added slots in March 2026 specifically for this.
 
-**Why fixed-width page wrappers?** Without a fixed width (996px), small components like Toggle produce narrow pages (350px) while large ones produce wide pages. Fixed width keeps all component pages visually consistent.
+**Why mandatory descriptions?** Figma MCP reads component descriptions and passes them to consuming agents as context. A component without description forces the agent to guess everything from visual structure. Descriptions are the single highest-leverage thing you can add to a design system for AI quality.
 
-**Why flexible component lists?** Real design systems rarely match a generic "core 10" list. A fintech DS might need Date Picker and Stepper but not Avatar. The skill suggests defaults but defers to the user's actual inventory.
+**Why 3-tier tokens (when used)?** Primitives hold raw values. Semantic tokens alias primitives and carry meaning (`color/bg/primary` instead of `color/blue-500`). Components bind to Semantic only. Switching Light/Dark requires zero component changes — you swap the Semantic layer. For single-brand or rebuilds, flat domain-based collections (Colors, Spacing, Radius) are equally valid. The skill supports both.
 
-**Why flexible token architecture?** The textbook 3-tier approach (Primitives → Semantic → Component) works for large multi-brand systems. Single-brand systems or existing files often use flat domain-based collections. Forcing a restructure wastes time and breaks existing bindings.
+**Why explicit variable scopes?** Default ALL_SCOPES pollutes every property picker. A spacing variable showing up in the color picker is confusing.
 
-**Why WCAG contrast validation in the audit?** A design system that looks right on the canvas can still fail users with low vision. The validate script checks every semantic `color/text/*` × `color/bg/*` pair in both Light and Dark modes against WCAG AA (4.5:1 for normal text, 3:1 for large text). Failures surface as warnings with the actual ratio so you can trace them back to the semantic pair and decide how to resolve — darken the text, adjust the background, or restrict the pair to large-text-only use cases.
+**Why states before default?** Most incomplete design systems ship a "happy path" Button and forget Disabled, Error, Loading. Component spec requires all states upfront.
 
-**Why scope-aware contrast pairing?** Inverse text tokens (e.g., `color/text/on-wine`) are designed to sit on filled surfaces of the same family, not on general backgrounds. Testing `on-wine` against `bg/card` produces a guaranteed-to-fail 1:1 ratio that isn't actually a bug — it's a combination that would never be used. The script detects the `on-{surface}` naming pattern and only pairs those tokens with backgrounds whose name contains `{surface}` as a segment (e.g., `bg/wine`, `bg/wine-subtle`).
+**Why codeSyntax on every variable?** Without `codeSyntax.WEB`, agents using `get_design_context` get raw Figma variable names instead of CSS token names. Setting it on creation means the design-to-code bridge works from day one. Phase 6 also depends on codeSyntax — the audit refuses to run without it.
 
-**Why domain-grouped duplicate detection?** Numeric values collide across token domains without being duplicates. `spacing/16`, `type/size/body`, and `radius/card` can all be 16px without any of them being a mistake — they're three different concepts that happen to share a number. The audit groups duplicate detection by the top-level name domain (`spacing`, `radius`, `type`, `color`) so only same-domain collisions are flagged.
+**Why TEXT component properties?** Without them, changing a button label from "Label" to "Submit" reverts on component update. TEXT properties with `componentPropertyReferences` preserve overrides.
+
+**Why fixed-width page wrappers?** Without fixed width (996px), small components like Toggle produce narrow pages (350px) while large ones produce wide pages. Fixed width keeps all component pages visually consistent.
+
+**Why flexible component lists?** Real design systems rarely match a generic "core 10". A fintech DS might need Date Picker and Stepper but not Avatar. The skill suggests defaults but defers to actual inventory.
+
+**Why split inspect/build into subfolders?** Large reference files don't all need to load at once. Inspect mode reads `references/inspect/` only. Build mode reads `references/build/` only. Phase 6 specifically loads `code-export.md`. Critical rules in SKILL.md apply to all modes.
+
+## Why this matters: closed loop Figma ↔ code
+
+The skill closes the design-to-code loop end-to-end. Figma side: components, tokens, slots, descriptions all properly structured for `get_design_context` to return clean CSS token names. Code side (Phase 6): `tokens.css` mirrors Figma exactly with three-layer indirection, AI rules tell the agent in the IDE which tokens exist and where to look up component specs, audit script catches drift. An AI agent reading a design via MCP and writing code in the IDE picks the same tokens both ways. No fabrication, no drift between sessions.
 
 ## Customization
 
-Fork and adapt to your needs. Common changes:
+Fork and adapt. Common changes:
+- **Different core components:** Edit list in SKILL.md Phase 4a and add specs to `references/build/component-spec.md`
+- **Different spacing scale:** Edit defaults in `references/build/token-taxonomy.md`
+- **Company-specific naming:** Edit `references/build/naming-conventions.md`
+- **Additional audit checks:** Add new module to `references/inspect/` and matching script to `scripts/inspect/`. Update SKILL.md inspect workflow.
+- **Single framework:** Remove irrelevant sections from `references/build/framework-mappings.md`
+- **Different Phase 6 output paths:** Edit defaults in `references/build/code-export.md`
 
-- **Different core components:** Edit the component list in `SKILL.md` Phase 4a and add specs to `references/component-spec.md`
-- **Different spacing scale:** Edit the defaults in `references/token-taxonomy.md`
-- **Company-specific naming:** Edit `references/naming-conventions.md` to match your conventions
-- **Single framework:** Remove irrelevant sections from `references/framework-mappings.md`
+## Related skills
 
-## Related skills and tools
-
-| Tool | When to use instead |
-|------|---------------------|
-| [Claude Design](https://claude.ai/design) | Rapid prototypes, pitch decks, and marketing collateral in Claude's own environment. DS stays inside Claude Design. |
-| `figma-generate-library` | Official Figma skill with a similar workflow, tightly integrated with Figma's own tooling |
+| Skill | When to use |
+|-------|-------------|
+| `figma-generate-library` | Official Figma skill with similar build workflow, integrated with Figma's tooling |
 | `figma-generate-design` | Building screens FROM a design system (not building the system itself) |
-| `figma-implement-design` | Generating code FROM Figma designs |
-| `figma-create-design-system-rules` | Creating CLAUDE.md rules for an existing system |
+| `figma-implement-design` | Generating code FROM Figma designs (page-level, not token-level) |
+| `figma-create-design-system-rules` | Creating top-level CLAUDE.md rules for an existing system |
 | `figma-code-connect-components` | Linking Figma components to code via Code Connect |
 
 ## Resources
 
 - [Figma: Create skills for the MCP server](https://developers.figma.com/docs/figma-mcp-server/create-skills/)
 - [Figma: Skills for MCP](https://help.figma.com/hc/en-us/articles/39166810751895-Figma-skills-for-MCP)
-- [Figma MCP server guide (GitHub)](https://github.com/figma/mcp-server-guide)
+- [Figma slots in design systems (Nathan Curtis)](https://medium.com/@nathanacurtis/slots-in-design-systems)
 - [How to build a design system in Figma (2026)](https://muz.li/blog/how-to-build-a-design-system-in-figma-a-practical-guide-2026/)
+- [Expose your design system to LLMs (Hardik Pandya)](https://hvpandya.com/llm-design-systems) — inspiration for Phase 6 architecture
 
 ## License
 
