@@ -26,7 +26,7 @@ compatibility: >
   outputs file contents inline for the user to copy).
 metadata:
   mcp-server: figma
-  version: 2.0.0
+  version: 2.0.1
 ---
 
 # Work with design systems in Figma

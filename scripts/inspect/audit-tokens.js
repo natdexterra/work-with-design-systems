@@ -29,6 +29,22 @@ if (!cs || cs.type !== 'COMPONENT_SET') {
 
 const COMMON_SCALE = [2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 56, 64, 80, 96];
 
+// Type guards — Figma's Plugin API throws (not returns undefined) when these
+// properties are accessed on incompatible node types. Membership check first.
+const LAYOUT_TYPES = new Set([
+  'FRAME', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE'
+]);
+
+const RADIUS_TYPES = new Set([
+  'FRAME', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE', 'RECTANGLE'
+]);
+
+const PAINT_TYPES = new Set([
+  'FRAME', 'COMPONENT', 'COMPONENT_SET', 'INSTANCE',
+  'RECTANGLE', 'ELLIPSE', 'POLYGON', 'STAR',
+  'VECTOR', 'BOOLEAN_OPERATION', 'TEXT', 'LINE'
+]);
+
 const errors = [];
 const warnings = [];
 let totalChecked = 0;
@@ -47,60 +63,79 @@ for (const variant of cs.children) {
       path
     };
 
-    // --- Fills ---
-    if (Array.isArray(node.fills)) {
-      for (let i = 0; i < node.fills.length; i++) {
-        const fill = node.fills[i];
-        if (fill.type !== 'SOLID' || fill.visible === false) continue;
-        totalChecked++;
+    // --- Fills / Strokes / Effects — only paint-capable types ---
+    if (PAINT_TYPES.has(node.type)) {
+      if (Array.isArray(node.fills)) {
+        for (let i = 0; i < node.fills.length; i++) {
+          const fill = node.fills[i];
+          if (fill.type !== 'SOLID' || fill.visible === false) continue;
+          totalChecked++;
 
-        const isBound = !!bindings.fills?.[i];
-        if (!isBound) {
-          errors.push({
-            ...ctx,
-            property: 'fill',
-            value: rgbToHex(fill.color, fill.opacity),
-            issue: 'unbound fill'
-          });
-        } else if (fill.opacity !== undefined && fill.opacity < 1) {
-          warnings.push({
-            ...ctx,
-            property: 'fill.opacity',
-            value: `${Math.round(fill.opacity * 100)}%`,
-            issue: 'raw opacity on bound fill'
-          });
+          const isBound = !!bindings.fills?.[i];
+          if (!isBound) {
+            errors.push({
+              ...ctx,
+              property: 'fill',
+              value: rgbToHex(fill.color, fill.opacity),
+              issue: 'unbound fill'
+            });
+          } else if (fill.opacity !== undefined && fill.opacity < 1) {
+            warnings.push({
+              ...ctx,
+              property: 'fill.opacity',
+              value: `${Math.round(fill.opacity * 100)}%`,
+              issue: 'raw opacity on bound fill'
+            });
+          }
+        }
+      }
+
+      if (Array.isArray(node.strokes)) {
+        for (let i = 0; i < node.strokes.length; i++) {
+          const stroke = node.strokes[i];
+          if (stroke.type !== 'SOLID' || stroke.visible === false) continue;
+          totalChecked++;
+
+          const isBound = !!bindings.strokes?.[i];
+          if (!isBound) {
+            errors.push({
+              ...ctx,
+              property: 'stroke',
+              value: rgbToHex(stroke.color, stroke.opacity),
+              issue: 'unbound stroke'
+            });
+          } else if (stroke.opacity !== undefined && stroke.opacity < 1) {
+            warnings.push({
+              ...ctx,
+              property: 'stroke.opacity',
+              value: `${Math.round(stroke.opacity * 100)}%`,
+              issue: 'raw opacity on bound stroke'
+            });
+          }
+        }
+      }
+
+      if (Array.isArray(node.effects)) {
+        for (let i = 0; i < node.effects.length; i++) {
+          const effect = node.effects[i];
+          if (!effect.visible) continue;
+          if (effect.type !== 'LAYER_BLUR' && effect.type !== 'BACKGROUND_BLUR') continue;
+          totalChecked++;
+          const isBound = !!bindings.effects?.[i];
+          if (!isBound) {
+            warnings.push({
+              ...ctx,
+              property: 'effect.blur',
+              value: `${effect.radius}px`,
+              issue: 'raw blur radius'
+            });
+          }
         }
       }
     }
 
-    // --- Strokes ---
-    if (Array.isArray(node.strokes)) {
-      for (let i = 0; i < node.strokes.length; i++) {
-        const stroke = node.strokes[i];
-        if (stroke.type !== 'SOLID' || stroke.visible === false) continue;
-        totalChecked++;
-
-        const isBound = !!bindings.strokes?.[i];
-        if (!isBound) {
-          errors.push({
-            ...ctx,
-            property: 'stroke',
-            value: rgbToHex(stroke.color, stroke.opacity),
-            issue: 'unbound stroke'
-          });
-        } else if (stroke.opacity !== undefined && stroke.opacity < 1) {
-          warnings.push({
-            ...ctx,
-            property: 'stroke.opacity',
-            value: `${Math.round(stroke.opacity * 100)}%`,
-            issue: 'raw opacity on bound stroke'
-          });
-        }
-      }
-    }
-
-    // --- Spacing (padding + itemSpacing) ---
-    if (node.layoutMode && node.layoutMode !== 'NONE') {
+    // --- Spacing (padding + itemSpacing) — only auto-layout-capable types ---
+    if (LAYOUT_TYPES.has(node.type) && node.layoutMode && node.layoutMode !== 'NONE') {
       for (const prop of ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'itemSpacing']) {
         const value = node[prop];
         if (typeof value !== 'number' || value <= 0) continue;
@@ -122,8 +157,8 @@ for (const variant of cs.children) {
       }
     }
 
-    // --- Corner radius ---
-    if (typeof node.cornerRadius === 'number' && node.cornerRadius > 0) {
+    // --- Corner radius — only radius-capable types ---
+    if (RADIUS_TYPES.has(node.type) && typeof node.cornerRadius === 'number' && node.cornerRadius > 0) {
       totalChecked++;
       const isBound = !!(bindings.cornerRadius || bindings.topLeftRadius);
       if (!isBound) {
@@ -146,25 +181,6 @@ for (const variant of cs.children) {
           value: `${node.fontSize}px / ${node.fontName?.family || 'unknown'}`,
           issue: 'missing text style'
         });
-      }
-    }
-
-    // --- Effects (blur) ---
-    if (Array.isArray(node.effects)) {
-      for (let i = 0; i < node.effects.length; i++) {
-        const effect = node.effects[i];
-        if (!effect.visible) continue;
-        if (effect.type !== 'LAYER_BLUR' && effect.type !== 'BACKGROUND_BLUR') continue;
-        totalChecked++;
-        const isBound = !!bindings.effects?.[i];
-        if (!isBound) {
-          warnings.push({
-            ...ctx,
-            property: 'effect.blur',
-            value: `${effect.radius}px`,
-            issue: 'raw blur radius'
-          });
-        }
       }
     }
   }

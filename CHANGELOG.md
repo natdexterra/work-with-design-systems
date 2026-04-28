@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.0.1 — 2026-04-28
+
+Patch release. Bug fixes surfaced by the first end-to-end inspect on a real production design system (~65 component sets, ~500 variants). No API changes; reports become accurate where v2.0.0 either crashed, over-flagged, or scored 0% on industry-correct components.
+
+### Fixed
+
+- **`audit-tokens.js` — type guards on TEXT/GROUP/etc. nodes.** Figma's Plugin API throws (rather than returns `undefined`) when `layoutMode`, `cornerRadius`, or `fills` are read on incompatible node types. The previous truthy guards evaluated the property access first and crashed. Added `LAYOUT_TYPES` / `RADIUS_TYPES` / `PAINT_TYPES` membership checks at each branch — the script now runs through component sets that contain TEXT or GROUP nodes (i.e. anything with labels, which is every real DS).
+- **`audit-detached.js` — switched from name matching to `detachedInfo` API.** Previous heuristic flagged any FRAME whose name matched a known component, producing ~90% false positives on documentation/spec frames named after components ("Title", "Link", "Arrow"). Now uses `node.detachedInfo` — the canonical Plugin API property that Figma sets only on frames that were actually detached from instances. Resolves the original component name where possible (local `id` or library `key`).
+- **`audit-states.js` — longest-match archetype detection.** Object-key iteration order made "Radio Button" match `button` first, leading to a false `Pressed` requirement (radios don't have Pressed in any industry DS). Now collects all matching keys and picks the longest, so multi-word archetypes (`radio button`, `inline link`, `icon button`, `toggle switch`, `text field`, `date picker`) win over single-word fallbacks.
+- **`audit-states.js` — binary-state archetypes no longer score 0%.** Toggle, Checkbox, Radio have two state dimensions (binary on/off + interaction Default/Hover/Disabled), per Material, Apple HIG, Polaris, IBM Carbon. Expected-state lists now include both axes (`Off`/`On`, `Unchecked`/`Checked`/`Indeterminate`, `Unselected`/`Selected`) so a DS that correctly models the binary axis is no longer falsely flagged. Quick fix; proper multi-dimensional scoring deferred to v2.1.
+- **`audit-states.js` — static archetypes treated as N/A instead of 0%.** Tooltip, Spinner, Loader, Image, Video, Logo, Pagination, Breadcrumbs, Badge, Avatar, Divider don't have interactive states by design (per Material/Polaris/Carbon — state for pagination/breadcrumbs lives in nested items). Added `NO_STATE_REQUIRED` set; these archetypes now return 100% with an explanatory note. Tabs are explicitly NOT in this set — flagging tabs without state remains correct.
+- **`audit-states.js` — accept plural `States` as state property name.** Singular `State` is canonical (Figma's official guidance, every major DS). Plural is recognized for real-world tolerance only.
+- **`inventory.js` and `audit-detached.js` — removed `loadAllPagesAsync` calls.** The MCP Plugin API doesn't expose this method. Per-page iteration with `setCurrentPageAsync` already loads page content as needed; the dead guard was misleading future maintainers.
+
+### Why these and not other audit findings
+
+The first real-world test surfaced ~30 distinct findings. Categorized as:
+
+1. **Real bugs** (above) — fixed.
+2. **Architectural gaps** — multi-dimensional state modeling for binary archetypes is patched here permissively; the proper multi-axis fix lands in v2.1.
+3. **Correct flags on a non-standard DS** — components legitimately missing Focused (WCAG 2.1 AA 2.4.7), Tabs without State, etc. Skill behavior unchanged.
+
 ## 2.0.0 — 2026-04-28
 
 Major release. The skill was renamed from `generate-design-system` to `work-with-design-systems` and now covers both inspecting (read-only audits) and building. The previous audit functionality (formerly planned as a separate `audit-design-system` skill) is now an integrated mode. Build mode optionally extends to a new Phase 6 — sync to code — that generates `tokens.css`, AI rules, and audit script for the user's codebase.

@@ -19,10 +19,6 @@
 
 const originalPage = figma.currentPage;
 
-if (typeof figma.loadAllPagesAsync === 'function') {
-  await figma.loadAllPagesAsync();
-}
-
 const components = [];
 let totalVariants = 0;
 
