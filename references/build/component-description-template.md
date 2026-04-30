@@ -5,34 +5,53 @@ Every public component MUST have a description filled out using this template. F
 ## The template
 
 ```
-## [Component Name]
+PURPOSE
+One sentence — what this component does and when to use it.
 
-**PURPOSE:** One sentence — what this component does and when to use it.
-
-**BEHAVIOR:**
+BEHAVIOR
 - Default interaction pattern (click, hover, focus)
 - State transitions (what triggers hover, focus, pressed)
 - Keyboard behavior (Enter, Space, Tab, Arrow keys)
 - Animation/motion notes
 
-**COMPOSITION:**
+COMPOSITION
 - Internal structure: what child layers/components it contains
 - Nested component instances (e.g., uses Avatar, uses Icon)
 - Slot descriptions: which slots exist, what each accepts (see below)
 - Which parts are configurable (variants, booleans, slots, text properties)
 
-**USAGE:**
+USAGE
 - When to use vs similar components (Button vs Link, Dialog vs Modal)
 - Dos and don'ts
 - Common combinations with other components
 - Anti-patterns to avoid
 
-**CODE GENERATION NOTES:**
+CODE GENERATION NOTES
 - Props mapping (Figma property → code prop name)
 - Accessibility attributes needed (role, aria-label, aria-describedby)
 - Event handlers to implement (onClick, onFocus, onKeyDown)
 - Any constraints (max children, required slots)
 ```
+
+## MCP delivery format — important constraints
+
+Figma's description field stores text with HTML encoding for some characters (`&` → `&amp;`, `"` → `&quot;`, `'` → `&#39;`). MCP's `get_design_context` decodes these back on output — so plain quotes and ampersands work fine.
+
+However, `get_design_context` ALSO escapes markdown special characters and collapses newlines:
+
+- `**bold**` → delivered as `\*\*bold\*\*` (asterisks escaped, bold does not render)
+- `[brackets]` → delivered as `\[brackets\]`
+- `## heading` → delivered as `\#\# heading`
+- Newlines → collapsed to single spaces (sections run together)
+- Backticks → escaped but still readable as `` \`code\` ``
+
+**Use plain-text formatting:**
+- UPPERCASE for section headers (no asterisks, no `##`)
+- Bullet items with `-` work fine
+- Backticks for code/token references work fine
+- Avoid `*`, `_`, `[`, `]`, `#` for visual emphasis — they will render as escape sequences in the consuming agent's view
+
+Because newlines collapse, UPPERCASE headers act as the only reliable section markers in the MCP-delivered text. Keep them short and single-word so they parse cleanly even when run together with prose.
 
 ## Slot documentation in COMPOSITION
 
@@ -64,11 +83,10 @@ Internal: base layout for Button variants. Not for direct use.
 ## Example: Button
 
 ```
-## Button
+PURPOSE
+Primary interactive element for triggering actions. Use for any user-initiated action (submit, cancel, navigate, open modal).
 
-**PURPOSE:** Primary interactive element for triggering actions. Use for any user-initiated action (submit, cancel, navigate, open modal).
-
-**BEHAVIOR:**
+BEHAVIOR
 - Click triggers the bound action
 - Hover increases background saturation by 10%
 - Pressed reduces opacity to 80%
@@ -76,21 +94,21 @@ Internal: base layout for Button variants. Not for direct use.
 - Disabled prevents clicks and reduces opacity to 40%
 - Loading state replaces label with spinner, disables clicks
 
-**COMPOSITION:**
+COMPOSITION
 - Auto Layout horizontal, gap 8px
 - Optional leading icon (boolean Icon Left)
 - Required label (TEXT property "Label")
 - Optional trailing icon (boolean Icon Right)
 - Padding scales with size: sm = 8/12, md = 12/16, lg = 16/24
 
-**USAGE:**
+USAGE
 - Use Primary variant for the main action on a page or section (one per context)
 - Use Secondary for alternative actions
 - Use Tertiary/Ghost for low-emphasis actions
 - Don't use Button for navigation that doesn't trigger an action — use Link instead
 - Don't stack multiple Primary buttons in the same context
 
-**CODE GENERATION NOTES:**
+CODE GENERATION NOTES
 - Variant `Type` → React prop `variant: "primary" | "secondary" | "tertiary" | "destructive"`
 - Variant `Size` → React prop `size: "sm" | "md" | "lg"`
 - Variant `State` → handled by component, not exposed as prop
@@ -104,17 +122,16 @@ Internal: base layout for Button variants. Not for direct use.
 ## Example: Card (with slots)
 
 ```
-## Card
+PURPOSE
+Container for grouped content with consistent spacing and elevation. Use to group related information that the user should perceive as a unit.
 
-**PURPOSE:** Container for grouped content with consistent spacing and elevation. Use to group related information that the user should perceive as a unit.
-
-**BEHAVIOR:**
+BEHAVIOR
 - Default Card is non-interactive
 - Interactive variant (hover and pressed states) for clickable cards
 - Click on interactive card triggers the bound action
 - Hover raises elevation by 1 level
 
-**COMPOSITION:**
+COMPOSITION
 - Auto Layout vertical, gap 16px
 - Padding 24px on all sides
 - Background color/surface/default, corner radius/lg
@@ -122,13 +139,13 @@ Internal: base layout for Button variants. Not for direct use.
 - Slot `Body`: required. Accepts text content, stacks of Typography, or arbitrary children. Fills width.
 - Slot `Footer`: optional. Accepts Button group or text. Hidden when empty. Sits below Body with extra 8px gap.
 
-**USAGE:**
+USAGE
 - Use Card for grouped content with clear boundaries
 - Use Interactive variant only when the entire card is clickable (don't put a Card inside a button)
 - Don't nest Cards — flat hierarchy reads better
 - For data tables, use Table not Card grid
 
-**CODE GENERATION NOTES:**
+CODE GENERATION NOTES
 - Variant `Type` → React prop `interactive?: boolean`
 - Slots map to React subcomponents:
   - `Card.Leading` → renders Leading slot content

@@ -26,7 +26,7 @@ compatibility: >
   outputs file contents inline for the user to copy).
 metadata:
   mcp-server: figma
-  version: 2.0.1
+  version: 2.0.2
 ---
 
 # Work with design systems in Figma
@@ -56,7 +56,7 @@ These apply to BOTH modes — inspect and build.
 7. **TEXT properties with the same name merge across variants.** If two variants both define `addComponentProperty("Label", "TEXT", ...)`, they become ONE shared property on the component set with one default value. For different defaults per variant: use different property names, leave text as direct content with instance text overrides, or accept the shared default.
 8. **TEXT component properties on every customizable text node.** Without them, label overrides ("Label" → "Submit") revert on component update. Every customizable text node needs `componentPropertyReferences = { characters: key }`.
 9. **Use slots for compound components.** Compound components (Card, Modal, Dialog, ListItem, ReviewCard) that contain variable inner content MUST use named slots instead of detach patterns or text-only props. Without slots, agents and users detach the component to edit inner content, which breaks maintenance and the agent's ability to reason about composition. Slots are available in Figma as of March 2026. See `references/build/slots-guide.md`.
-10. **Every public component MUST have a structured description.** Figma MCP reads component descriptions and passes them to agents as context. Missing descriptions force the agent to guess purpose, behavior, and composition. Use the template in `references/build/component-description-template.md`. Private base components (prefixed with `.` or `_`) may use a one-line note.
+10. **Every public component MUST have a structured description.** Figma MCP reads component descriptions and passes them to agents as context. Missing descriptions force the agent to guess purpose, behavior, and composition. Use the template in `references/build/component-description-template.md`. **Use plain-text formatting (UPPERCASE section headers, no markdown bold or `##` — `get_design_context` escapes them) — see template's "MCP delivery format" section.** Private base components (prefixed with `.` or `_`) may use a one-line note.
 11. **Never detach a component.** If you need to vary inner content, use: variant, boolean property, instance swap, or named slot. Detaching breaks the design-to-code bridge — the detached frame becomes structurally invisible to agents and to inspect mode.
 
 ---

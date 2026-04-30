@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.2 — 2026-04-30
+
+Patch release. Fixes a formatting mismatch surfaced during a real-world build session: descriptions written with the v2.0.x markdown template were escaped by Figma MCP's `get_design_context` and rendered unreadable to consuming agents. No API changes.
+
+### Fixed
+
+- **`references/build/component-description-template.md` — replaced markdown-bold section headers with plain-text UPPERCASE.** `get_design_context` escapes `**bold**`, `[brackets]`, and `## headings`, and collapses newlines to single spaces. The previous `**PURPOSE:**` / `**BEHAVIOR:**` markers reached agents as literal `\*\*PURPOSE:\*\*` strings inside one wall of text. Plain UPPERCASE survives the pipeline cleanly and remains the only reliable section marker once newlines collapse. Same change applied to both example blocks (Button, Card) and to the `## [Component Name]` heading line (now omitted — Figma already attaches descriptions to their component).
+- **`references/build/component-description-template.md` — added "MCP delivery format — important constraints" section.** Documents the encoding/escape behavior so future authors don't rediscover it. Lists what passes through (HTML-encoded `&`, `"`, `'`; backticks) and what doesn't (markdown bold, brackets, `##`, newlines).
+- **`SKILL.md` Critical Rule #10 — added plain-text formatting note.** Surfaces the constraint at the rule level so it's not buried only in the template file.
+
+### Why this and not other findings
+
+The session log produced one description-formatting bug and several DS-specific decisions (token re-adds, brand-locked fills) that are not skill concerns — they are correctly categorized under "What's NOT a skill bug" in the feedback. A description-roundtrip validation helper in `validate-design-system.js` was considered and deferred until the skill is used at scale.
+
 ## 2.0.1 — 2026-04-28
 
 Patch release. Bug fixes surfaced by the first end-to-end inspect on a real production design system (~65 component sets, ~500 variants). No API changes; reports become accurate where v2.0.0 either crashed, over-flagged, or scored 0% on industry-correct components.
