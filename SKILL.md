@@ -26,7 +26,7 @@ compatibility: >
   outputs file contents inline for the user to copy).
 metadata:
   mcp-server: figma
-  version: 2.0.2
+  version: 2.0.3
 ---
 
 # Work with design systems in Figma
@@ -48,7 +48,11 @@ IMPORTANT: Before working with design systems in Figma, load the `working-with-d
 These apply to BOTH modes — inspect and build.
 
 1. **Work incrementally.** One component (or one variant set) per `use_figma` call. Validate after each step. This is the single most important practice for avoiding bugs.
-2. **Never build on unvalidated work.** After every `use_figma` call that creates or modifies something, run `get_metadata` + `get_screenshot` before the next creation step.
+2. **Never build on unvalidated work — match validation depth to change type.**
+   - **Structural change** (new variant, restructured auto-layout, new property, `swapComponent`): `get_metadata` + `get_screenshot` before next step. Visual properties may have shifted invisibly.
+   - **Binding / description / codeSyntax / scope / rename change**: verify INSIDE the same script via `node.boundVariables` / `node.description` / `variable.codeSyntax` / `variable.scopes` reads, return as part of the result. No external `get_screenshot` needed — Figma is deterministic on these.
+   - **End of batch**: one `get_screenshot` of the parent CS for visual sanity.
+   Why: `get_screenshot` is the heaviest call and Figma MCP has a ~15 calls/min rate limit. Matching depth to risk frees that budget for the structural changes that actually need visual verification, and stops you hitting the rate limit on a binding pass that doesn't need it.
 3. **Bind visual properties to variables when a scale value exists.** Fills, strokes, padding, itemSpacing, corner radius. For component-specific dimensions that don't match any scale value (e.g., 3px internal padding on a toggle track, 1px divider offset), hardcoded values are acceptable — document these exceptions in the component description.
 4. **lineHeight variables must store pixel values, not percentages.** Figma variables are unitless. When bound to lineHeight, the value is interpreted as pixels. If your DS defines line heights as percentages (e.g., 150%), convert before storing: fontSize × (percentage / 100). Text styles can store {unit: "PERCENT", value: 150} — variables cannot.
 5. **Set codeSyntax.WEB on every variable.** Without it, agents using `get_design_context` get raw Figma variable names instead of CSS token names. Set during creation, not as a separate pass.
@@ -198,7 +202,21 @@ Recommend a path:
 
 If foundations are complete, skip Phase 2.
 
-#### 1d. Confirm scope
+#### 1d. Check for project overrides
+
+Look for project-specific design system rules and load them as overrides on top of the skill's defaults. In priority order, check:
+
+1. `<projectRoot>/.claude/rules/design-system.md` — Claude Code convention for DS rules
+2. `<projectRoot>/.claude/rules/component-build-rules.md` — alternative name some projects use
+3. `<projectRoot>/CLAUDE.md` — if it contains a "Components — Build Rules" or "Design System" section, load that section
+
+If any of these exist, read them and treat the rules as **extensions**, not replacements, of this skill's Critical Rules and Phase requirements. Surface what you loaded to the user in one line: "Loaded project overrides from `<path>` — N additional rules will be applied."
+
+Why: every team's DS has conventions the generic skill can't predict — component numbering schemes (`C{section}.{number}`), required registry fields (e.g. AEM element names), brand-specific tokens (sharp buttons vs pill, scrim opacity values), description templates (`aem:` line first). Hardcoding these in the generic skill would over-specialize it; ignoring them forces the team to re-explain conventions every session. Loading them as overrides keeps the skill general while letting it act project-aware.
+
+If no override file exists, proceed normally — do not block on absence.
+
+#### 1e. Confirm scope
 
 Present summary:
 - Token categories (colors, spacing, radius, typography, shadows)
@@ -377,9 +395,9 @@ Report file paths to user. Phase 6 complete.
 
 ---
 
-## Examples
+## Example (inline reference)
 
-**Example 1: Pure inspect — quality report on someone else's file**
+**Inspect mode — quality report on someone else's file**
 
 User: "Audit this Figma file — I'm reviewing it for a client engagement."
 
@@ -392,134 +410,9 @@ Mode: Inspect.
 5. Export to audit-report.md
 6. STOP. Present summary, wait for user decision.
 
-**Example 2: Pure build — new design system from scratch**
+For 8 more examples (full build, inspect → build paired flow, slot retrofit, narrow-scope inspect, end-to-end Phase 6, code-export-only, touch-up description pass) see `references/examples.md`. Load it when the request doesn't clearly match the inline example above.
 
-User: "Create a design system for a fintech app. Brand color #6366F1 (indigo). Inter font. Light + Dark modes."
-
-Mode: Build, full build path. Phase 6 not requested.
-
-1. Discovery: Confirm specs with user
-2. Foundations: 3-tier variables, Light/Dark modes, text styles
-3. File structure: standard pages
-4. Components: build core 10 with slots for Card and Modal
-5. QA: validation script, test page
-6. Phase 5 closing prompt: user replies "done"
-
-**Example 3: Inspect → build (most common paired flow)**
-
-User: "I have a 6-month-old Figma file. Need to figure out what's broken and fix what's worth fixing."
-
-Mode: Inspect first.
-
-1. Inspect mode: full audit, all modules
-2. Report shows: 3 ALL_SCOPES violations, 12 variables missing codeSyntax, Toggle missing Focused state, Card has 7 detached instances in example frames
-3. STOP. Present report.
-4. User decides: "Fix the variable issues and add slots to Card. Skip the Toggle for now."
-5. Mode switches to Build, scoped to user's selection
-6. Build mode Phase 1c (skip — already audited): proceed directly to fixes
-7. Fix ALL_SCOPES, add codeSyntax.WEB
-8. Phase 4c slot decision for Card: Leading, Body, Footer slots
-9. Update Card component in place with slots, write description
-10. Phase 5 verification: run scripts/build/validate-design-system.js
-
-**Example 4: Build mode — extending existing file**
-
-User: "Variables and text styles are set up. Need to build 7 components with proper bindings."
-
-Mode: Build, extend path.
-
-1. Phase 1c health check on variables (verify quality)
-2. Skip Phase 2 (foundations exist)
-3. Skip Phase 3 (file structure exists)
-4. Phase 4: build each of 7 components, including slot decision for compound ones
-5. Phase 5: verify
-
-**Example 5: Build mode — slot retrofit**
-
-User: "Our Card component keeps getting detached because users need different inner content. Add slots to it."
-
-Mode: Build, slot retrofit path. Phase 6 NOT triggered (retrofit is excluded from Phase 6 default offer).
-
-1. Read current Card via `get_metadata`
-2. Phase 4c: slot decision (Leading, Body, Footer typical)
-3. Update Card in place, preserve variants and booleans
-4. Update component description to document slots
-5. Verify existing instances don't break
-
-**Example 6: Inspect mode — narrow scope**
-
-User: "Just check WCAG compliance on Button and Input."
-
-Mode: Inspect, narrow scope.
-
-1. Skip inventory (user specified components)
-2. Run only Module 3 (Accessibility) on Button and Input
-3. Report: contrast ratios, touch targets, font sizes, focus indicators
-4. List specific WCAG criteria pass/fail
-5. STOP.
-
-**Example 7: Build → Phase 6 (end-to-end)**
-
-User: "Create a design system for fintech app, indigo primary, Inter, Light+Dark — and generate tokens.css and CLAUDE.md when done."
-
-Mode: Build, full build path with explicit Phase 6 request.
-
-1. Phases 1-5 same as Example 2
-2. After QA passes, skip Phase 5 closing prompt (user already opted in)
-3. Phase 6a: detect `.claude/` dir → Claude Code client
-4. Phase 6b: target `.claude/rules/design-system.md`
-5. Phase 6c: ask user — "Light/Dark strategy?" → user picks "both (attribute + media query)"
-6. Phase 6d: run exportTokensToCSS.js, format three-layer tokens.css with both strategies, write
-7. Phase 6d: write `.claude/rules/design-system.md` with component list and token list
-8. Phase 6d: write `scripts/token-audit.js` with TOKENS filled from build
-9. Phase 6e: run audit on existing project CSS → reports hardcoded values for user to address
-
-**Example 8: Code export only**
-
-User: "My Figma DS is solid. Just generate tokens.css and CLAUDE.md for my repo."
-
-Mode: Build, code export only path.
-
-1. Phase 1c health check: verify variables have scopes and codeSyntax (Phase 6 needs this)
-2. If health check fails: pause, recommend fixing foundations first
-3. If health check passes: skip Phases 2-5 entirely
-4. Phase 6: run as in Example 7
-
----
-
-## Common edge cases
-
-**Mode unclear:** ASK the user. Don't guess. If their request mentions "fix" or "build" — build mode. If "check" or "audit" — inspect. If both — inspect first, then pause.
-
-**User wants to skip inspect → build pause:** They can say "audit and immediately fix everything in priority order." Allowed, but always create the report file first so they have a record. Never silently chain.
-
-**Phase 6 in Claude.ai web (no file tools):** Detect environment by attempting file write capability check. If unavailable, switch to inline output mode — print each generated file's contents in a fenced code block with a clear "Save as: `path/to/file`" header. Do NOT silently fail.
-
-**Phase 6 with existing scoped file:** If `.claude/rules/design-system.md` already exists from previous run, ask user: overwrite, merge (skill diffs), or skip. Default to ask.
-
-**Phase 6 with corrupt or partial Figma DS:** Phase 1c MUST pass before Phase 6. If foundations have ALL_SCOPES violations or missing codeSyntax, refuse Phase 6 and recommend fixing foundations first. Generated tokens.css would be useless without proper codeSyntax.
-
-**Missing font:** If `figma.loadFontAsync()` fails, call `figma.listAvailableFontsAsync()` for alternatives. Fall back to "Inter".
-
-**Token conflicts:** If codebase uses different naming than Figma conventions ($gray-100 vs gray/100), document the mapping and follow Figma /-separated convention.
-
-**Existing components in build mode:** Inspect first to avoid duplicate work. Update in place where possible to preserve instance overrides.
-
-**Too many variants:** Break component into base + composed (e.g., `_ButtonBase` + `IconButton`).
-
-**Mode mismatch (3+ themes):** Create all modes upfront in Semantic collection. Don't add retroactively.
-
-**Large file performance:** One task per `use_figma` call. Batch variables in groups of 20–30.
-
-**Slot API not available:** If Plugin API doesn't expose slot creation in current version, fall back to documented boolean + instance swap pattern. Document in component description that this will migrate to slots when API support lands. Never detach as workaround.
-
-**Legacy components without descriptions:** When extending a file where existing components lack descriptions, do NOT overwrite silently. Present user with list, ask before adding. Offer batch mode for large files.
-
-**Storybook stories not matching variants:** When codebase has Storybook stories that don't map 1:1 to Figma variants (either direction), list mismatches in Phase 1b. Resolve with user before Phase 4.
-
-**Component-specific dimensions:** Critical Rule #3 allows hardcoded values for dimensions outside the spacing scale. Document in description.
-
-**Numbering divergence:** When rebuilding, plan numbers may differ from existing Figma names. Document mapping (e.g., plan "C2.2 Toggle" → Figma "C4.0 Toggle").
+For unusual situations (mode unclear, Phase 6 in Claude.ai web, missing fonts, token conflicts, rate limits, conflicting project overrides) see `references/edge-cases.md`. Load it when you hit one.
 
 ---
 

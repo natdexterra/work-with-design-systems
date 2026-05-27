@@ -1,18 +1,30 @@
 # Changelog
 
-## 2.0.2 — 2026-04-30
+## 2.0.3 — 2026-05-27
 
-Patch release. Fixes a formatting mismatch surfaced during a real-world build session: descriptions written with the v2.0.x markdown template were escaped by Figma MCP's `get_design_context` and rendered unreadable to consuming agents. No API changes.
+Patch release. Three small additions driven by real production use across ~60 component sessions in a large production DS and validated via a 6-subagent eval-loop. **No changes to behavioural Critical Rules** — original Rule #1 (one component per `use_figma` call) and the slot/description/detach rules are unchanged. Only adds a project-overrides loader, loosens one validation cadence rule that the rate limit was hurting in practice, and moves examples + edge cases into reference files so they don't load on every session.
 
-### Fixed
+The eval-loop also tested two additional changes (a touch-up workflow path and a loosening of Rule #1 to allow idempotent batching) but evidence was inconclusive — they're left out of this release pending dedicated tests. See `BACKLOG.md` for the rationale.
 
-- **`references/build/component-description-template.md` — replaced markdown-bold section headers with plain-text UPPERCASE.** `get_design_context` escapes `**bold**`, `[brackets]`, and `## headings`, and collapses newlines to single spaces. The previous `**PURPOSE:**` / `**BEHAVIOR:**` markers reached agents as literal `\*\*PURPOSE:\*\*` strings inside one wall of text. Plain UPPERCASE survives the pipeline cleanly and remains the only reliable section marker once newlines collapse. Same change applied to both example blocks (Button, Card) and to the `## [Component Name]` heading line (now omitted — Figma already attaches descriptions to their component).
-- **`references/build/component-description-template.md` — added "MCP delivery format — important constraints" section.** Documents the encoding/escape behavior so future authors don't rediscover it. Lists what passes through (HTML-encoded `&`, `"`, `'`; backticks) and what doesn't (markdown bold, brackets, `##`, newlines).
-- **`SKILL.md` Critical Rule #10 — added plain-text formatting note.** Surfaces the constraint at the rule level so it's not buried only in the template file.
+### Added
 
-### Why this and not other findings
+- **Phase 1d — project overrides loader.** Skill now checks `<projectRoot>/.claude/rules/design-system.md`, `<projectRoot>/.claude/rules/component-build-rules.md`, and `<projectRoot>/CLAUDE.md` ("Design System" / "Components — Build Rules" sections) on entry. Loads them as **extensions** (not replacements) of this skill's Critical Rules. Surfaces the loaded path to the user in one line. **Why:** the eval-loop's single strongest signal — without the loader, the skill grades component descriptions against its own generic template (PURPOSE / BEHAVIOR / COMPOSITION / USAGE / CODE GENERATION NOTES) even when the project has documented different conventions. The result is confidently-wrong advice: it flagged a fully-compliant production banner as "incomplete" for missing sections the team intentionally doesn't use. Score: with loader 7/7, without 2/7 on the descriptions audit.
 
-The session log produced one description-formatting bug and several DS-specific decisions (token re-adds, brand-locked fills) that are not skill concerns — they are correctly categorized under "What's NOT a skill bug" in the feedback. A description-roundtrip validation helper in `validate-design-system.js` was considered and deferred until the skill is used at scale.
+### Changed
+
+- **Critical Rule #2 — validation depth ladder.** Old rule: `get_metadata + get_screenshot` after every mutation. New rule: structural changes (variants, auto-layout, properties, `swapComponent`) → external `get_metadata + get_screenshot`; binding / description / codeSyntax / scope / rename changes → verify INSIDE the same script via property reads; end-of-batch → one screenshot for visual sanity. **Why:** `get_screenshot` is the heaviest call and Figma MCP has a ~15 calls/min rate limit; matching depth to risk frees that budget for the structural changes that actually need visual verification. Validated by the eval-loop — same audit correctness on a 3-CS Tabs family with 1 fewer `use_figma` call.
+
+### Moved (no behaviour change)
+
+- **Examples 2–8 → `references/examples.md`.** SKILL.md keeps a single inline example for the inspect mode; the other seven (full build, slot retrofit, narrow-scope inspect, end-to-end Phase 6, code-export-only, etc.) load on demand.
+- **15 «Common edge cases» entries → `references/edge-cases.md`.** Plus 3 new entries surfaced by the eval-loop: description round-trip encoding (`setB.description = setA.description` double-encodes `&`), Figma MCP rate-limit symptoms, and the override-vs-Critical-Rule conflict precedence.
+- **Net effect on SKILL.md:** 540 lines → ~430 lines. Saves ~5–10k tokens per session entry.
+
+### Not in this release (tested, not enough evidence)
+
+- **Touch-up workflow path** — proposed as a faster path for single-binding tweaks / description fixes. Wasn't covered by any of the three evals run; promoted to BACKLOG for a dedicated test.
+- **Loosen Critical Rule #1 to allow idempotent batches** — proposed to let safe batch operations (binding the same variable across N nodes, codeSyntax pass, descriptions across a CS family) share one `use_figma` call. The sandbox-build eval that would have tested this hit a contamination issue (both with-skill and old-skill subagents wrote to the same Figma file in parallel); promoted to BACKLOG with a note to use isolated sandbox files next time.
+- **"If you read nothing else" compact reference** at the end of SKILL.md — no eval coverage. Promoted to BACKLOG; reconsider only if mid-session re-anchoring proves to be a recurring need.
 
 ## 2.0.1 — 2026-04-28
 
