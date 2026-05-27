@@ -212,7 +212,7 @@ Look for project-specific design system rules and load them as overrides on top 
 
 If any of these exist, read them and treat the rules as **extensions**, not replacements, of this skill's Critical Rules and Phase requirements. Surface what you loaded to the user in one line: "Loaded project overrides from `<path>` — N additional rules will be applied."
 
-Why: every team's DS has conventions the generic skill can't predict — component numbering schemes (`C{section}.{number}`), required registry fields (e.g. AEM element names), brand-specific tokens (sharp buttons vs pill, scrim opacity values), description templates (`aem:` line first). Hardcoding these in the generic skill would over-specialize it; ignoring them forces the team to re-explain conventions every session. Loading them as overrides keeps the skill general while letting it act project-aware.
+Why: every team's DS has conventions the generic skill can't predict — component numbering schemes (`C{section}.{number}`), required registry fields (e.g. CMS element identifiers), brand-specific tokens (sharp buttons vs pill, scrim opacity values), description templates (a project-defined marker line first). Hardcoding these in the generic skill would over-specialize it; ignoring them forces the team to re-explain conventions every session. Loading them as overrides keeps the skill general while letting it act project-aware.
 
 If no override file exists, proceed normally — do not block on absence.
 
