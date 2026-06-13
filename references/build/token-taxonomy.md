@@ -111,3 +111,9 @@ Minimum hues for a v1 system:
 - Warning: amber/yellow
 - Error/Danger: red
 - Info: blue (can share with primary if primary is blue)
+
+**Status colors are mandatory for app UIs, and functional — not brand.** If the brand palette has no suitable hue (especially no red for `error`), add a dedicated status ramp rather than reusing a brand color; tune it to harmonize with the palette but keep `error` unmistakably red. Provide three steps per status — `{type}/50` (bg tint), `{type}/500` (solid), `{type}/700` (text) — and verify each text-on-bg pair at WCAG AA ≥ 4.5:1. Never force a brand color into a status role (a brown "error" reads as wrong and breaks the convention).
+
+## Responsive type via modes
+
+Font-size and line-height are the exception to "no modes in Primitives." For responsive UIs, put the type scale in a collection with two modes — `Desktop` (default) and `Mobile` — and give every `font-size/*` and `line-height/*` token a value per mode. The two mode values are the `clamp()` endpoints on code export (Mobile = min, Desktop = max). Line-height values are pixels (variables are unitless → interpreted as px; never percent — Critical Rule #4). Preview mobile by setting the frame's mode via `setExplicitVariableModeForCollection(typographyCollection, mobileModeId)` while reusing the same text styles.

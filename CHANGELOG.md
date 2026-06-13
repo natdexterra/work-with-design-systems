@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+Doc-only additions driven by a real end-to-end build session (warm earthy brand DS for a Figma Make app — 94 variables across Primitives / Semantic / Typography, responsive type, status colours added after the fact). **No behavioural Critical Rule or script changes.** Not yet eval-covered — assign a version after the next eval pass, or treat as provisional.
+
+### Added
+
+- **Phase 2c — Semantic layer completeness checklist.** Enumerates the full role surface (bg / text / border / interactive / status / accent) and makes **status** explicitly mandatory for app UIs. Adds a rule for palettes with no status hue: surface the gap and propose a functional, AA-checked status ramp rather than silently skipping or forcing a brand colour into `error`. **Why:** in the source session the Semantic layer was first built without status colours and the user had to catch the missing `error` token — the build flow (Phase 2 / 4) never mentioned status; it lived only in `token-taxonomy.md` tables.
+- **Phase 2b — responsive / fluid type via collection modes.** Documents modelling `Desktop` / `Mobile` as two modes on the Typography collection (each token carries a per-mode value = `clamp()` endpoints), previewing mobile with `setExplicitVariableModeForCollection`. **Why:** the taxonomy previously only knew Light / Dark modes; responsive type had no documented pattern and had to be derived by hand.
+- **Phase 3 — foundations specimen anatomy.** Concrete colour-card spec (swatch + name + `--token` + HEX, role-grouped, luminance-based border for light swatches) and a Desktop / Mobile type-specimen layout. **Why:** Phase 3 previously said only "rendered swatches" with no reusable card structure.
+- **`token-taxonomy.md` — status-colour guidance + responsive-type-modes note** mirroring the above.
+
+### Real-world signal (not a change)
+
+- The session exercised idempotent batching (scopes + codeSyntax across 20 variables in one `use_figma` call; binding 20 swatches in one call) with no correctness issues — a data point for the deferred BACKLOG item *"Loosen Critical Rule #1 to allow idempotent batches."*
+
 ## 2.0.3 — 2026-05-27
 
 Patch release. Three small additions driven by real production use across ~60 component sessions in a large production DS and validated via a 6-subagent eval-loop. **No changes to behavioural Critical Rules** — original Rule #1 (one component per `use_figma` call) and the slot/description/detach rules are unchanged. Only adds a project-overrides loader, loosens one validation cadence rule that the rate limit was hurting in practice, and moves examples + edge cases into reference files so they don't load on every session.

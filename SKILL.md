@@ -246,7 +246,19 @@ Match what's in the file or codebase. The requirement is not depth — it's that
 
 Create text styles with proper variable bindings (font-size, line-height, font-weight, letter-spacing all bound to variables). Apply lineHeight gotcha (Critical Rule #4).
 
+**Responsive / fluid type:** model it with collection **modes**, not by hardcoding one size. Give the Typography collection a `Desktop` (default) and a `Mobile` mode; every `font-size` / `line-height` token carries a value per mode. A frame previews mobile via `setExplicitVariableModeForCollection(typographyCollection, mobileModeId)` while reusing the same text styles, and on code export each token's two mode values become the `clamp()` min (Mobile) and max (Desktop). Keep `Desktop` the default so styles preview at full size. (Line-height stays in pixels — Critical Rule #4.)
+
 Create effect styles for shadows, blurs.
+
+#### 2c. Semantic layer completeness — cover every role, never skip status
+
+When building the Semantic tier, verify it covers the full role surface, not just the obvious ones:
+
+- **background** (canvas / surface / subtle / inverse) · **text** (primary / secondary / muted / inverse / on-brand) · **border** (default / strong / focus) · **interactive** (primary / secondary / disabled, + hover) · **status** (success / warning / error / info — each as solid / bg / text) · **accent** (optional)
+
+**Status is the most-missed group — treat it as mandatory for any app UI.** Without it there is no token to show an error, a validation message, or a success toast.
+
+**If the source / brand palette has no status hues (especially no red for `error`):** do NOT silently omit them and do NOT force a brand colour into a status role (a brown "error" reads as wrong and breaks the convention). Surface the gap to the user and propose a small functional status ramp (`error | warning | success | info` × `{bg, solid, text}`) tuned to harmonise with the palette, with every text-on-bg pair checked for WCAG AA (≥ 4.5:1). Status colour is functional infrastructure, not brand expression. See `references/build/token-taxonomy.md`.
 
 ### Phase 3: File structure
 
@@ -255,6 +267,8 @@ Create effect styles for shadows, blurs.
 Standard pages: Cover, Getting Started, Foundations, one page per component group, Patterns (if applicable), Utilities.
 
 Foundations page contains: rendered swatches for each color variable, type specimens for each text style, spacing scale visualization, effect previews.
+
+**Colour swatch card (recommended anatomy):** group swatches by role (PRIMARY / SECONDARY / NEUTRALS / STATUS …) under uppercase section titles. Each card = a large swatch bound to the variable, then three text lines: human name (bold), the code token (`--token-name`, from codeSyntax.WEB), and `HEX CODE : #RRGGBB`. Add a 1px neutral border to swatches whose luminance is high (≈ > 0.82) so white / light-tint swatches stay visible on a white page. **Type specimen:** one row per text style; if the scale is responsive, show a `Desktop` column and a fixed-width `Mobile` column (mode-switched) side by side so the fluid behaviour is visible.
 
 Component pages use fixed-width (996px) wrapper structure:
 - Wrapper: 996px wide, AUTO height
