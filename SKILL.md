@@ -52,11 +52,11 @@ These apply to BOTH modes — inspect and build.
    - **Structural change** (new variant, restructured auto-layout, new property, `swapComponent`): `get_metadata` + `get_screenshot` before next step. Visual properties may have shifted invisibly.
    - **Binding / description / codeSyntax / scope / rename change**: verify INSIDE the same script via `node.boundVariables` / `node.description` / `variable.codeSyntax` / `variable.scopes` reads, return as part of the result. No external `get_screenshot` needed — Figma is deterministic on these.
    - **End of batch**: one `get_screenshot` of the parent CS for visual sanity.
-   Why: `get_screenshot` is the heaviest call and Figma MCP has a ~15 calls/min rate limit. Matching depth to risk frees that budget for the structural changes that actually need visual verification, and stops you hitting the rate limit on a binding pass that doesn't need it.
+   Why: `get_screenshot` is the heaviest call, and Figma MCP rate-limits its read tools per plan and seat — **Professional Full/Dev seat: 10 calls/min and 200/day**; Organization: 15/min, 200/day; Enterprise: 20/min, 600/day; Starter: 20/month; View/Collab seats: 6/month (Figma's `rate-limits-access` doc, 2026-08). Only `whoami`, `create_new_file`, `add_code_connect_map` are exempt. The **daily** cap is the one that bites: a per-component inspect pass with a screenshot each can spend a whole day's budget on one mid-size file. Matching depth to risk frees that budget for the structural changes that actually need visual verification. Run `whoami` when unsure which tier applies.
 3. **Bind visual properties to variables when a scale value exists.** Fills, strokes, padding, itemSpacing, corner radius. For component-specific dimensions that don't match any scale value (e.g., 3px internal padding on a toggle track, 1px divider offset), hardcoded values are acceptable — document these exceptions in the component description.
 4. **lineHeight variables must store pixel values, not percentages.** Figma variables are unitless. When bound to lineHeight, the value is interpreted as pixels. If your DS defines line heights as percentages (e.g., 150%), convert before storing: fontSize × (percentage / 100). Text styles can store {unit: "PERCENT", value: 150} — variables cannot.
-5. **Set codeSyntax.WEB on every variable.** Without it, agents using `get_design_context` get raw Figma variable names instead of CSS token names. Set during creation, not as a separate pass.
-6. **Set explicit variable scopes.** Never leave ALL_SCOPES. Background colors get FRAME_FILL + SHAPE_FILL. Text colors get TEXT_FILL. Spacing gets GAP + WIDTH_HEIGHT. Radius gets CORNER_RADIUS. Font size gets FONT_SIZE.
+5. **Set codeSyntax.WEB on every variable — one unique token name per variable.** Without it, agents using `get_design_context` get raw Figma variable names instead of code token names. Set during creation, not as a separate pass. Presence is not enough: a semantic token gets its **own** name (`--color-text-link`), never the name of the primitive it aliases (six roles sharing `--color-primary-500` cannot be told apart in a stylesheet), and never a **value** (`1.25rem`, `9999px`, `#fff`, `400` — Phase 6 would emit `--1rem: 1rem`). Spell it in the codebase's convention: a CSS custom property as `--name` or `var(--name)` (Figma's own examples use the `var()` form) is what Phase 6 `tokens.css` consumes; an SCSS `$token` or a bare `token-name` is valid when the project's documentation prescribes it, but Phase 6 cannot consume it. The validator reports values and duplicates as errors and non-CSS conventions as info.
+6. **Set explicit variable scopes.** Never leave ALL_SCOPES. Background colors get FRAME_FILL + SHAPE_FILL. Text colors get TEXT_FILL. Spacing gets GAP + WIDTH_HEIGHT. Radius gets CORNER_RADIUS. Font size gets FONT_SIZE. **Empty `scopes` (`[]`) is the opposite failure and worse:** the variable is invisible in every property picker, so designers hand-paste hex into frames (root cause of a real 2026-08-12 complaint — 46 primitives, all `[]`). The validator reports both.
 7. **TEXT properties with the same name merge across variants.** If two variants both define `addComponentProperty("Label", "TEXT", ...)`, they become ONE shared property on the component set with one default value. For different defaults per variant: use different property names, leave text as direct content with instance text overrides, or accept the shared default.
 8. **TEXT component properties on every customizable text node.** Without them, label overrides ("Label" → "Submit") revert on component update. Every customizable text node needs `componentPropertyReferences = { characters: key }`.
 9. **Use slots for compound components.** Compound components (Card, Modal, Dialog, ListItem, ReviewCard) that contain variable inner content MUST use named slots instead of detach patterns or text-only props. Without slots, agents and users detach the component to edit inner content, which breaks maintenance and the agent's ability to reason about composition. Slots are available in Figma as of March 2026. See `references/build/slots-guide.md`.
@@ -186,8 +186,8 @@ Read `references/build/framework-mappings.md` for framework-specific extraction 
 Fast sanity check to build a state ledger and decide how to proceed. NOT a full audit — for that, switch to inspect mode.
 
 Run `scripts/build/validate-design-system.js` via `use_figma`. Then targeted checks:
-- Variable scopes (flag ALL_SCOPES violations)
-- codeSyntax coverage (list variables missing codeSyntax.WEB)
+- Variable scopes (flag ALL_SCOPES **and empty** scopes)
+- codeSyntax quality — present on every variable, **unique**, and a CSS *name* (`--color-brand-primary`), not a value (`1.25rem`) and not the aliased primitive's name reused on a semantic role
 - Duplicate variables
 - Bindings sample via `get_metadata` on a few components, check `boundVariables` coverage
 - Generic layer names (if >20% of layers in components are auto-named like `Frame 47`, suggest Figma's AI rename in Actions panel as a first pass)
@@ -246,6 +246,8 @@ Match what's in the file or codebase. The requirement is not depth — it's that
 
 Create text styles with proper variable bindings (font-size, line-height, font-weight, letter-spacing all bound to variables). Apply lineHeight gotcha (Critical Rule #4).
 
+**Text wrap (Figma, Aug 2026):** text layers, text styles and individual paragraphs now carry a wrap mode — default, `Balance` (even line lengths) or `Pretty` (no orphan word on the last line). Decide it per text style, not per layer: `Pretty` for body/paragraph styles, `Balance` for headings and pull quotes, default for UI labels. The Plugin API property is not documented in `figma-use` yet — set it in the UI, or grep `plugin-api-standalone.d.ts` for the property name before scripting it. It does not survive export to PPTX / Figma Slides, so a system that also feeds presentations must not rely on it for line breaks.
+
 **Responsive / fluid type:** model it with collection **modes**, not by hardcoding one size. Give the Typography collection a `Desktop` (default) and a `Mobile` mode; every `font-size` / `line-height` token carries a value per mode. A frame previews mobile via `setExplicitVariableModeForCollection(typographyCollection, mobileModeId)` while reusing the same text styles, and on code export each token's two mode values become the `clamp()` min (Mobile) and max (Desktop). Keep `Desktop` the default so styles preview at full size. (Line-height stays in pixels — Critical Rule #4.)
 
 Create effect styles for shadows, blurs.
@@ -268,7 +270,7 @@ Standard pages: Cover, Getting Started, Foundations, one page per component grou
 
 Foundations page contains: rendered swatches for each color variable, type specimens for each text style, spacing scale visualization, effect previews.
 
-**Colour swatch card (recommended anatomy):** group swatches by role (PRIMARY / SECONDARY / NEUTRALS / STATUS …) under uppercase section titles. Each card = a large swatch bound to the variable, then three text lines: human name (bold), the code token (`--token-name`, from codeSyntax.WEB), and `HEX CODE : #RRGGBB`. Add a 1px neutral border to swatches whose luminance is high (≈ > 0.82) so white / light-tint swatches stay visible on a white page. **Type specimen:** one row per text style; if the scale is responsive, show a `Desktop` column and a fixed-width `Mobile` column (mode-switched) side by side so the fluid behaviour is visible.
+**Colour swatch card (recommended anatomy):** group swatches by role (PRIMARY / SECONDARY / NEUTRALS / STATUS …) under uppercase section titles — uppercase via the text style's `textCase = 'UPPER'`, **never by typing capitals into `characters`** (source text stays sentence-case; a restyle then needs no retyping). Each card = a large swatch bound to the variable, then three text lines: human name (bold), the code token (`--token-name`, from codeSyntax.WEB), and `HEX CODE : #RRGGBB`. Add a 1px neutral border to swatches whose luminance is high (≈ > 0.82) so white / light-tint swatches stay visible on a white page. **Type specimen:** one row per text style; if the scale is responsive, show a `Desktop` column and a fixed-width `Mobile` column (mode-switched) side by side so the fluid behaviour is visible.
 
 Component pages use fixed-width (996px) wrapper structure:
 - Wrapper: 996px wide, AUTO height
@@ -315,10 +317,10 @@ If user wants composition patterns documented, read `references/build/patterns-g
 
 ### Phase 5: QA
 
-Run `scripts/build/validate-design-system.js` for full file audit:
+Run `scripts/build/validate-design-system.js` for full file audit (variables and styles are file-level; the component-tree walk covers one page per call — pass `PAGE_ID` and fan out one call per component page, see `references/inspect/overview.md`):
 - All collections present
-- No ALL_SCOPES violations
-- All variables have codeSyntax.WEB
+- No ALL_SCOPES or empty-scope variables
+- Every variable has a unique, name-shaped codeSyntax.WEB
 - No hardcoded fills in components
 - All components have Auto Layout
 - Light/Dark modes tested
@@ -326,6 +328,8 @@ Run `scripts/build/validate-design-system.js` for full file audit:
 - All compound components have slot decision documented
 
 Build a test page assembling several components together to verify composability.
+
+If the file is a **published library**, remind the user to click **Publish** — consumer files keep the old scopes, names and bindings until they accept the library update, so a fix that validates here is invisible downstream until then.
 
 After QA passes, present this prompt to the user:
 

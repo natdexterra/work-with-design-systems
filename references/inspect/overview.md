@@ -15,18 +15,20 @@ If the user asks "fix the issues," do NOT enter build mode. Show the report firs
 
 | # | Module | Script | Scope |
 |---|--------|--------|-------|
-| 0 | Component inventory | `scripts/inspect/inventory.js` | File-wide |
+| 0 | Component inventory | `scripts/inspect/inventory.js` | Per page — fan out one call per page |
 | 1 | Token compliance | `scripts/inspect/audit-tokens.js` | Per component set |
 | 2 | Interactive states | `scripts/inspect/audit-states.js` | Per component set |
 | 3 | Accessibility | `scripts/inspect/audit-accessibility.js` | Per component set |
-| 4 | Detached instances | `scripts/inspect/audit-detached.js` | File-wide, runs once |
+| 4 | Detached instances | `scripts/inspect/audit-detached.js` | Per page — fan out one call per page |
 | 5 | Naming quality | `scripts/inspect/audit-naming.js` | Per component set |
 | 6 | Component descriptions | (no script — Claude reasoning) | Per component set |
 
 ## Run order
 
 1. **Module 0** first — the inventory tells you what component sets exist and gives you their `nodeId`s. Modules 1, 2, 3, 5 consume these IDs.
-2. **Module 4** runs once, file-wide — independent of the per-component pipeline.
+2. **Module 4** is independent of the per-component pipeline.
+
+**Page-scoped scripts (Modules 0 and 4, and the component-tree walk in `validate-design-system.js`):** the `use_figma` runtime allows at most one page switch per call and has no `loadAllPagesAsync` (looping `setCurrentPageAsync` reloads the file on every iteration). Each of these scripts therefore scans ONE page: the page whose ID you define as `PAGE_ID`, or the current page when `PAGE_ID` is undefined. Their result carries `scannedPage` and `otherPages`; run one read-only `use_figma` to list pages, then emit one call per page **in a single message** so they run in parallel, and merge the arrays. Do not loop pages inside one script.
 3. **Modules 1, 2, 3, 5** run per component set, in any order. Group runs by component to keep context tight.
 4. **Module 6** is reasoning, not a script — runs after structural audits because the description draft references the structure those modules surface.
 
@@ -40,7 +42,8 @@ Before starting an audit, confirm:
 - The user has chosen scope: full file or a subset of component sets
 - The user has chosen modules: default is all six
 - The user has chosen export format(s): markdown (default), JSON, both, or AI prompt — see `report-templates.md`
-- For dynamic-page mode files, scripts call `figma.loadAllPagesAsync()` upfront where needed; verify the runtime supports it, otherwise scripts fall back to per-page loading
+- You know which pages hold components (one read-only `use_figma` listing `figma.root.children`) — page-scoped scripts take a `PAGE_ID` and are fanned out per page, see Run order
+- The plan/seat rate budget covers the scope (Professional: 200 read calls/day, 10/min — `whoami` shows the tier); trim the component-set subset before starting, not after the daily limit hits
 
 After scope confirmation, run Module 0, present the inventory as a table, and ask the user to confirm before processing each component.
 

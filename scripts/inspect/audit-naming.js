@@ -17,7 +17,7 @@
  * Pass skillNames: "work-with-design-systems" for logging.
  */
 
-const cs = figma.getNodeById(COMPONENT_SET_ID);
+const cs = await figma.getNodeByIdAsync(COMPONENT_SET_ID);
 if (!cs || cs.type !== 'COMPONENT_SET') {
   return { error: `Node ${COMPONENT_SET_ID} is not a component set` };
 }

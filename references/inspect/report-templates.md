@@ -32,7 +32,9 @@ Default format. Human-readable, paste-ready into PR descriptions or design revie
 | Issue | Count | Severity |
 |---|---|---|
 | Variables with ALL_SCOPES | {count} | Error |
+| Variables with empty scopes (invisible in pickers) | {count} | Error |
 | Variables missing codeSyntax.WEB | {count} | Error |
+| codeSyntax.WEB duplicates / value-shaped names | {count} | Error |
 | Detached instances | {count} | Warning |
 | Duplicate variables | {count} | Warning |
 

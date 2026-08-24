@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### 2026-08-24 — Figma platform sync + validator hardening
+
+Driven by Figma's August 2026 platform changes (rate-limit tiers, agent skills, text wrap, figma-use Rule #18) and by two months of production use of the skill on two design-system files — one small library (~200 variables), one large enterprise system (36 pages, 162 variables, a documented SCSS token convention). Script changes were verified live on both files before release. Not yet eval-covered.
+
+#### Fixed
+
+- **Rate limit was wrong for most users.** Critical Rule #2 and `edge-cases.md` said "~15 calls/min". Figma's published tiers: Professional Full/Dev seat **10/min and 200/day**; Organization 15/min, 200/day; Enterprise 20/min, 600/day; Starter 20/month; View/Collab 6/month. The **daily** cap was never mentioned and is the one that ends an inspect run. Now stated per tier in Rule #2, `edge-cases.md`, `inspect/overview.md` and the README prerequisites, with `whoami` as the way to learn the tier.
+- **Scripts looped page switches.** `validate-design-system.js`, `inventory.js` and `audit-detached.js` called `loadAllPagesAsync()` or looped `setCurrentPageAsync` over every page — the `use_figma` runtime forbids the former and reloads the file on every iteration of the latter (one real audit was blocked on it). All three are now **page-scoped**: they scan `PAGE_ID` when defined, else the current page, and return `scannedPage` / `otherPages` so the caller fans out one call per page in a single message. Variables and styles stay file-level. `inspect/overview.md` documents the fan-out; the module table marks the affected modules.
+- **Sync `figma.getNodeById()`** in six scripts replaced by `await figma.getNodeByIdAsync()` — the sync lookup is not part of the dynamic-page API the runtime exposes, and the async form reaches nodes on pages that are not current (verified).
+- **Validator errored on flat domain-based architecture** ("Missing Primitives collection") although SKILL.md Phase 2a declares Colors / Spacing / Radius / Typography collections valid. Now an info line when ≥2 domain collections exist.
+
+#### Added
+
+- **Empty-scope detection.** `scopes: []` makes a variable invisible in every property picker — the root cause of a real "I had to hand-paste hex" complaint (46 primitives, all empty) that the ALL_SCOPES check could not see. Validator error; Rule #6, Phase 1c, Phase 5 and the report template updated.
+- **codeSyntax.WEB quality, not just presence.** Three tiers in the validator: a CSS custom property in either spelling (`--name` / `var(--name)`) is what Phase 6 needs; another documented convention (`$token`, bare `token-name`) is reported as info; a **value** (`1rem`, `#fff`, `400`, `Regular`) is an error. **Duplicate names** across variables are an error on the bare name — six semantic roles sharing one primitive's CSS name, or two font-family tokens sharing `--font-primary`, were both found live. Critical Rule #5, Phase 1c, Phase 5 and the report template updated.
+- **Text wrap (Figma, Aug 2026)** — `Balance` / `Pretty` on text layers, styles and paragraphs. Phase 2b now says to decide it per text style and warns that it does not survive PPTX / Slides export. Plugin API property not yet documented in `figma-use`; set in the UI or verify against the typings first.
+- **Uppercase via `textCase`, never typed capitals** — Phase 3 specimen guidance; a restyle should never require retyping.
+- **Publish reminder** in Phase 5 for published libraries: consumer files keep old scopes, names and bindings until the update is accepted.
+- **Edge cases:** `componentPropertyDefinitions` owner narrowing (figma-use Rule #18); fill/stroke binds on TEXT nodes do not need the font loaded when the agent's machine lacks it; internally inconsistent MCP reads (phantom nodes) are bad reads, not bad files; desktop Dev Mode MCP as the read-only fallback when remote auth fails; downstream regeneration + publish after a taxonomy rename.
+
+#### Real-world signal (not a change)
+
+- The small library validated **0 errors** on 2026-08-12 under the old presence-only checks and **89 errors** under the new ones — all real (hex and rem literals stored as codeSyntax, six duplicate names). Presence checks were hiding the defects the design-to-code bridge trips on.
+
+### Earlier (June 2026)
+
 Doc-only additions driven by a real end-to-end build session (warm earthy brand DS for a Figma Make app — 94 variables across Primitives / Semantic / Typography, responsive type, status colours added after the fact). **No behavioural Critical Rule or script changes.** Not yet eval-covered — assign a version after the next eval pass, or treat as provisional.
 
 ### Added

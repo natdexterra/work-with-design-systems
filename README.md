@@ -149,6 +149,7 @@ Phase 6 (sync to code) requires file write access. Available in Claude Code, Cur
 
 - [Figma MCP server](https://developers.figma.com/docs/figma-mcp-server/remote-server-installation/) connected (remote server recommended)
 - The `figma-use` skill installed (comes with the Figma plugin for Claude Code and Cursor)
+- A Full or Dev seat. Figma rate-limits MCP read tools per plan — Professional: 10 calls/min, 200/day; Organization: 15/min, 200/day; Enterprise: 20/min, 600/day — so scope inspect runs to the component sets you need
 
 ## Usage
 
@@ -367,6 +368,10 @@ Fork and adapt. Common changes:
 - [Figma slots in design systems (Nathan Curtis)](https://medium.com/@nathanacurtis/slots-in-design-systems)
 - [How to build a design system in Figma (2026)](https://muz.li/blog/how-to-build-a-design-system-in-figma-a-practical-guide-2026/)
 - [Expose your design system to LLMs (Hardik Pandya)](https://hvpandya.com/llm-design-systems) — inspiration for Phase 6 architecture
+
+## Author
+
+Built and maintained by [Natalia Bukhtiiarova](https://nataliabukh.com) — product designer working on design systems and Figma ↔ code workflows with AI agents. Questions, audits of your own system, or a walkthrough: [nataliabukh.com](https://nataliabukh.com).
 
 ## License
 

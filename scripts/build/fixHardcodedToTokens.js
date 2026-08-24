@@ -56,7 +56,7 @@ const applied = [];
 const skipped = [];
 
 for (const csId of componentSetIds) {
-  const cs = figma.getNodeById(csId);
+  const cs = await figma.getNodeByIdAsync(csId);
   if (!cs || cs.type !== 'COMPONENT_SET') continue;
 
   for (const variant of cs.children) {

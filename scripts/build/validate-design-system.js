@@ -8,8 +8,8 @@
  *
  * Checks:
  *  - Variable collections (Primitives required; Semantic recommended)
- *  - Variable scopes (ALL_SCOPES violations)
- *  - codeSyntax.WEB coverage
+ *  - Variable scopes (ALL_SCOPES violations, empty scopes)
+ *  - codeSyntax.WEB coverage, uniqueness and name shape (not a value)
  *  - Duplicate primitive values (grouped by name domain — spacing, radius, type, color separately)
  *  - Mode parity (values present in all modes)
  *  - Semantic Light/Dark mode presence
@@ -43,15 +43,25 @@
  */
 
 async function runAudit() {
-  // Dynamic-page mode requires explicit page loading before iteration.
-  // Prefer loadAllPagesAsync when available; fall back to per-page loading.
-  if (typeof figma.loadAllPagesAsync === "function") {
-    await figma.loadAllPagesAsync();
-  } else {
-    for (const page of figma.root.children) {
-      await figma.setCurrentPageAsync(page);
+  // Page scope. Variables and styles are file-level and need no page. The
+  // component-tree walk (section 7) scans ONE page: PAGE_ID when the caller
+  // defines it, else the current page — the use_figma runtime allows at most
+  // one page switch per call and has no loadAllPagesAsync (looping
+  // setCurrentPageAsync reloads the file each time). Fan out one call per
+  // component page (in one message) for full coverage; `scannedPage` /
+  // `otherPages` in the result say what is left.
+  let scanPage = figma.currentPage;
+  if (typeof PAGE_ID !== "undefined" && PAGE_ID) {
+    const target = await figma.getNodeByIdAsync(PAGE_ID);
+    if (!target || target.type !== "PAGE") {
+      throw new Error(`PAGE_ID ${PAGE_ID} is not a page`);
     }
+    await figma.setCurrentPageAsync(target);
+    scanPage = target;
   }
+  const otherPages = figma.root.children
+    .filter((p) => p.id !== scanPage.id)
+    .map((p) => ({ id: p.id, name: p.name }));
 
   const issues = [];
   const stats = {
@@ -171,8 +181,20 @@ async function runAudit() {
   stats.variableCollections = collections.length;
 
   const lowerNames = collections.map((c) => c.name.toLowerCase());
+  const DOMAIN_RE = /colou?r|spac|radius|typo|type|font|grid|size/;
+  const domainCollections = lowerNames.filter((n) => DOMAIN_RE.test(n)).length;
   if (!lowerNames.some((n) => n.includes("primitiv"))) {
-    addIssue("error", "tokens", 'Missing "Primitives" variable collection');
+    if (domainCollections >= 2) {
+      // Flat domain-based architecture (Colors / Spacing / Radius / Typography …)
+      // is a valid shape per SKILL.md Phase 2a — report, don't fail.
+      addIssue(
+        "info",
+        "tokens",
+        `No "Primitives" collection — flat domain-based architecture detected (${domainCollections} domain collections)`
+      );
+    } else {
+      addIssue("error", "tokens", 'Missing "Primitives" variable collection');
+    }
   }
   // Per v1.2.0 flexible architecture: flat domain-based collections are valid.
   if (!lowerNames.some((n) => n.includes("semantic"))) {
@@ -188,7 +210,35 @@ async function runAudit() {
   stats.variables = variables.length;
 
   let allScopesCount = 0;
+  let emptyScopesCount = 0;
   let missingCodeSyntaxCount = 0;
+  // codeSyntax.WEB quality: one unique CSS custom-property NAME per variable.
+  // A value ("1.25rem", "9999px", "--1rem", "#fff") or a name shared by several
+  // variables (six semantic roles all aliased to "--color-primary-500") breaks
+  // the design-to-code bridge just as much as a missing one.
+  // codeSyntax.WEB tiers:
+  //   "css"   — a CSS custom property, "--name" or "var(--name)" (Figma's own
+  //             examples use the var() form). What Phase 6 tokens.css needs.
+  //   "other" — name-shaped but not a custom property: an SCSS "$t-color-…",
+  //             a bare "data-vis-green-3", a JS path. Valid when the codebase
+  //             speaks that convention; Phase 6 cannot consume it → info.
+  //   null    — a VALUE ("1rem", "#fff", "400", "Regular"): error.
+  // Duplicates are detected on the bare name whatever the tier.
+  const codeSyntaxOwners = new Map();
+  const CSS_FORM_RE = /^(?:var\((--[^\s()]+)\)|(--[^\s()]+))$/;
+  const BARE_CSS_RE = /^--[a-z_][a-z0-9_-]*$/i;
+  const VALUE_RE = /^(?:--)?(?:#|\d)|(?:px|rem|em|%)$|^[A-Za-z]+$/;
+  const classifyCodeSyntax = (s) => {
+    const m = CSS_FORM_RE.exec(s);
+    if (m) {
+      const bare = m[1] || m[2];
+      return BARE_CSS_RE.test(bare) && !VALUE_RE.test(bare) ? { tier: "css", bare } : { tier: null, bare: s };
+    }
+    // Other conventions: optional "$"/"@" sigil, then letters/digits/-/_/./slash.
+    if (VALUE_RE.test(s) || !/^[$@]?[a-z_][a-z0-9_.\/-]*$/i.test(s)) return { tier: null, bare: s };
+    return { tier: "other", bare: s };
+  };
+  const nonCssNames = [];
   // Duplicate detection is scoped by (mode, domain) pair. Variables from
   // different domains that happen to share a numeric value (e.g. spacing/16
   // and type/size/body, both = 16) are NOT considered duplicates.
@@ -198,12 +248,25 @@ async function runAudit() {
     if (v.scopes && v.scopes.length === 1 && v.scopes[0] === "ALL_SCOPES") {
       allScopesCount++;
     }
-    if (
-      !v.codeSyntax ||
-      !v.codeSyntax.WEB ||
-      v.codeSyntax.WEB.trim() === ""
-    ) {
+    if (!v.scopes || v.scopes.length === 0) {
+      emptyScopesCount++;
+    }
+    const webName = v.codeSyntax && v.codeSyntax.WEB ? v.codeSyntax.WEB.trim() : "";
+    if (webName === "") {
       missingCodeSyntaxCount++;
+    } else {
+      const { tier, bare } = classifyCodeSyntax(webName);
+      if (tier === null) {
+        addIssue(
+          "error",
+          "tokens",
+          `Variable "${v.name}" codeSyntax.WEB is a value, not a token name: "${webName}"`
+        );
+      } else {
+        if (tier === "other") nonCssNames.push(`${v.name} → ${webName}`);
+        if (!codeSyntaxOwners.has(bare)) codeSyntaxOwners.set(bare, []);
+        codeSyntaxOwners.get(bare).push(v.name);
+      }
     }
 
     const collection = collections.find(
@@ -256,12 +319,39 @@ async function runAudit() {
       `${allScopesCount} variables have ALL_SCOPES (should be explicitly scoped)`
     );
   }
+  if (emptyScopesCount > 0) {
+    addIssue(
+      "error",
+      "tokens",
+      `${emptyScopesCount} variables have EMPTY scopes (invisible in every property picker)`
+    );
+  }
   if (missingCodeSyntaxCount > 0) {
     addIssue(
       "warning",
       "tokens",
       `${missingCodeSyntaxCount} variables missing codeSyntax.WEB (breaks design-to-code bridge)`
     );
+  }
+  if (nonCssNames.length > 0) {
+    addIssue(
+      "info",
+      "tokens",
+      `${nonCssNames.length} variables have a codeSyntax.WEB that is not a CSS custom property (fine if the codebase uses that convention; Phase 6 tokens.css needs "--name" / "var(--name)"): ${nonCssNames
+        .slice(0, 3)
+        .join(", ")}${nonCssNames.length > 3 ? ", …" : ""}`
+    );
+  }
+  for (const [webName, owners] of codeSyntaxOwners.entries()) {
+    if (owners.length > 1) {
+      addIssue(
+        "error",
+        "tokens",
+        `codeSyntax.WEB "${webName}" is shared by ${owners.length} variables: ${owners
+          .slice(0, 6)
+          .join(", ")}${owners.length > 6 ? ", …" : ""}`
+      );
+    }
   }
 
   for (const [, names] of primitiveValueMap.entries()) {
@@ -362,16 +452,11 @@ async function runAudit() {
     "COMPONENT_SET",
   ]);
 
-  const allComponents = [];
-  const allComponentSets = [];
-  for (const page of figma.root.children) {
-    allComponents.push(
-      ...page.findAllWithCriteria({ types: ["COMPONENT"] })
-    );
-    allComponentSets.push(
-      ...page.findAllWithCriteria({ types: ["COMPONENT_SET"] })
-    );
-  }
+  // One page per call (see the page-scope note at the top of runAudit).
+  const allComponents = scanPage.findAllWithCriteria({ types: ["COMPONENT"] });
+  const allComponentSets = scanPage.findAllWithCriteria({
+    types: ["COMPONENT_SET"],
+  });
   stats.components = allComponents.length;
   stats.componentSets = allComponentSets.length;
 
@@ -587,6 +672,8 @@ async function runAudit() {
   const hasMore = issues.length > CAP;
 
   return {
+    scannedPage: { id: scanPage.id, name: scanPage.name },
+    otherPages,
     stats,
     issueCount: issues.length,
     issues: cappedIssues,

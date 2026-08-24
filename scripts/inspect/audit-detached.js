@@ -2,10 +2,11 @@
  * audit-detached.js
  *
  * Module: 4 — Detached instances scanner
- * Input:  none (scans entire file)
- * Output: { detachedInstances: [...], count }
+ * Input:  PAGE_ID (string, optional) — page to scan; defaults to the current
+ *         page. One page per call: fan out one call per page and merge.
+ * Output: { detachedInstances: [...], count, scannedPage, otherPages }
  *
- * Walks every page and collects FRAME nodes that Figma itself flags as
+ * Walks one page and collects FRAME nodes that Figma itself flags as
  * previously-instances via the canonical `node.detachedInfo` property
  * (Plugin API — InstanceNode). Avoids the false positives that name-matching
  * heuristics produce on documentation/spec frames.
@@ -18,13 +19,26 @@
  * Pass skillNames: "work-with-design-systems" for logging.
  */
 
-const originalPage = figma.currentPage;
+// Page scope. The use_figma runtime allows at most one page switch per call and
+// has no loadAllPagesAsync (looping setCurrentPageAsync reloads the file each
+// time). Scan ONE page: PAGE_ID when the caller defines it, else the current
+// page. Fan out one call per page (in one message) and merge the results.
+let page = figma.currentPage;
+if (typeof PAGE_ID !== 'undefined' && PAGE_ID) {
+  const target = await figma.getNodeByIdAsync(PAGE_ID);
+  if (!target || target.type !== 'PAGE') {
+    return { error: `PAGE_ID ${PAGE_ID} is not a page` };
+  }
+  await figma.setCurrentPageAsync(target);
+  page = target;
+}
+const otherPages = figma.root.children
+  .filter(p => p.id !== page.id)
+  .map(p => ({ id: p.id, name: p.name }));
 
 const detached = [];
 
-for (const page of figma.root.children) {
-  await figma.setCurrentPageAsync(page);
-
+{
   // Canonical detection: only frames Figma itself flags as previously-instances.
   const candidates = page.findAll(n =>
     n.type === 'FRAME' && n.detachedInfo !== null && n.detachedInfo !== undefined
@@ -36,7 +50,7 @@ for (const page of figma.root.children) {
     // Resolve original component name where possible (id is local, key is library).
     let sourceName = frame.name;
     if (info.id) {
-      const source = figma.getNodeById(info.id);
+      const source = await figma.getNodeByIdAsync(info.id);
       if (source && (source.type === 'COMPONENT' || source.type === 'COMPONENT_SET')) {
         sourceName = source.name;
       }
@@ -63,9 +77,9 @@ for (const page of figma.root.children) {
   }
 }
 
-await figma.setCurrentPageAsync(originalPage);
-
 return {
   detachedInstances: detached,
-  count: detached.length
+  count: detached.length,
+  scannedPage: { id: page.id, name: page.name },
+  otherPages
 };
