@@ -581,7 +581,7 @@ async function runAudit() {
   // designed to sit on a filled surface of the same family. They are tested
   // ONLY against backgrounds whose name contains `{surface}` as a name segment
   // (split by "/" or "-"). This avoids false positives like pairing
-  // "color/text/on-wine" with "color/bg/card".
+  // "color/text/on-accent" with "color/bg/card".
   const contrastReport = { light: [], dark: [], failures: 0, skipped: 0 };
 
   const textVars = variables.filter((v) => /^color\/text\//i.test(v.name));
@@ -616,7 +616,7 @@ async function runAudit() {
   const checkMode = async (mode, label) => {
     if (!mode) return;
     for (const tv of textVars) {
-      // Detect inverse text tokens: color/text/on-wine, color/text/on-brand, etc.
+      // Detect inverse text tokens: color/text/on-accent, color/text/on-brand, etc.
       const onMatch = /^color\/text\/on-([a-z0-9-]+)$/i.exec(tv.name);
       const surface = onMatch ? onMatch[1].toLowerCase() : null;
 

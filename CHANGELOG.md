@@ -1,77 +1,57 @@
 # Changelog
 
-## Unreleased
+## 2.0.4 — 2026-09-06
 
-### 2026-09-06 — Other design surfaces
+Patch release. Figma platform sync (rate-limit tiers, agent skills, text wrap), validator hardening, semantic-layer and responsive-type guidance, and a note on second design surfaces. Script changes were verified live on two design-system files of different sizes.
 
-#### Added
-
-- **"Other design surfaces" section in SKILL.md.** Rules for the case where screens are drawn in a second canvas tool with its own token store: the tokens file stays the source of truth; the tool's tokens are created from the file through its token API; before any hand-off the tool's token list is read back and diffed against the file (colors, spacing, radius 1:1; line-height drift recorded, not fixed); a token that exists only in the tool is an invented rule and needs a decision; inspect mode's semantic-role coverage applies to a design-system document as it does to a Figma library.
-
-### 2026-08-24 — Figma platform sync + validator hardening
-
-Driven by Figma's August 2026 platform changes (rate-limit tiers, agent skills, text wrap, figma-use Rule #18) and by two months of production use of the skill on two design-system files — one small library (~200 variables), one large enterprise system (36 pages, 162 variables, a documented SCSS token convention). Script changes were verified live on both files before release. Not yet eval-covered.
-
-#### Fixed
+### Fixed
 
 - **Rate limit was wrong for most users.** Critical Rule #2 and `edge-cases.md` said "~15 calls/min". Figma's published tiers: Professional Full/Dev seat **10/min and 200/day**; Organization 15/min, 200/day; Enterprise 20/min, 600/day; Starter 20/month; View/Collab 6/month. The **daily** cap was never mentioned and is the one that ends an inspect run. Now stated per tier in Rule #2, `edge-cases.md`, `inspect/overview.md` and the README prerequisites, with `whoami` as the way to learn the tier.
-- **Scripts looped page switches.** `validate-design-system.js`, `inventory.js` and `audit-detached.js` called `loadAllPagesAsync()` or looped `setCurrentPageAsync` over every page — the `use_figma` runtime forbids the former and reloads the file on every iteration of the latter (one real audit was blocked on it). All three are now **page-scoped**: they scan `PAGE_ID` when defined, else the current page, and return `scannedPage` / `otherPages` so the caller fans out one call per page in a single message. Variables and styles stay file-level. `inspect/overview.md` documents the fan-out; the module table marks the affected modules.
-- **Sync `figma.getNodeById()`** in six scripts replaced by `await figma.getNodeByIdAsync()` — the sync lookup is not part of the dynamic-page API the runtime exposes, and the async form reaches nodes on pages that are not current (verified).
+- **Scripts looped page switches.** `validate-design-system.js`, `inventory.js` and `audit-detached.js` called `loadAllPagesAsync()` or looped `setCurrentPageAsync` over every page — the `use_figma` runtime forbids the former and reloads the file on every iteration of the latter. All three are now **page-scoped**: they scan `PAGE_ID` when defined, else the current page, and return `scannedPage` / `otherPages` so the caller fans out one call per page in a single message. Variables and styles stay file-level. `inspect/overview.md` documents the fan-out; the module table marks the affected modules.
+- **Sync `figma.getNodeById()`** in six scripts replaced by `await figma.getNodeByIdAsync()` — the sync lookup is not part of the dynamic-page API the runtime exposes, and the async form reaches nodes on pages that are not current.
 - **Validator errored on flat domain-based architecture** ("Missing Primitives collection") although SKILL.md Phase 2a declares Colors / Spacing / Radius / Typography collections valid. Now an info line when ≥2 domain collections exist.
 
-#### Added
+### Added
 
-- **Empty-scope detection.** `scopes: []` makes a variable invisible in every property picker — the root cause of a real "I had to hand-paste hex" complaint (46 primitives, all empty) that the ALL_SCOPES check could not see. Validator error; Rule #6, Phase 1c, Phase 5 and the report template updated.
-- **codeSyntax.WEB quality, not just presence.** Three tiers in the validator: a CSS custom property in either spelling (`--name` / `var(--name)`) is what Phase 6 needs; another documented convention (`$token`, bare `token-name`) is reported as info; a **value** (`1rem`, `#fff`, `400`, `Regular`) is an error. **Duplicate names** across variables are an error on the bare name — six semantic roles sharing one primitive's CSS name, or two font-family tokens sharing `--font-primary`, were both found live. Critical Rule #5, Phase 1c, Phase 5 and the report template updated.
+- **Empty-scope detection.** `scopes: []` makes a variable invisible in every property picker, so designers hand-paste hex into frames; a file with 46 primitives all empty-scoped passed the ALL_SCOPES check. Validator error; Rule #6, Phase 1c, Phase 5 and the report template updated.
+- **codeSyntax.WEB quality, not just presence.** Three tiers in the validator: a CSS custom property in either spelling (`--name` / `var(--name)`) is what Phase 6 needs; another documented convention (`$token`, bare `token-name`) is reported as info; a **value** (`1rem`, `#fff`, `400`, `Regular`) is an error. **Duplicate names** across variables are an error on the bare name (six semantic roles sharing one primitive's CSS name; two font-family tokens sharing `--font-primary`). Critical Rule #5, Phase 1c, Phase 5 and the report template updated. Under presence-only checks one library validated with 0 errors; under these checks it reported 89, all real.
 - **Text wrap (Figma, Aug 2026)** — `Balance` / `Pretty` on text layers, styles and paragraphs. Phase 2b now says to decide it per text style and warns that it does not survive PPTX / Slides export. Plugin API property not yet documented in `figma-use`; set in the UI or verify against the typings first.
 - **Uppercase via `textCase`, never typed capitals** — Phase 3 specimen guidance; a restyle should never require retyping.
 - **Publish reminder** in Phase 5 for published libraries: consumer files keep old scopes, names and bindings until the update is accepted.
 - **Edge cases:** `componentPropertyDefinitions` owner narrowing (figma-use Rule #18); fill/stroke binds on TEXT nodes do not need the font loaded when the agent's machine lacks it; internally inconsistent MCP reads (phantom nodes) are bad reads, not bad files; desktop Dev Mode MCP as the read-only fallback when remote auth fails; downstream regeneration + publish after a taxonomy rename.
-
-#### Real-world signal (not a change)
-
-- The small library validated **0 errors** on 2026-08-12 under the old presence-only checks and **89 errors** under the new ones — all real (hex and rem literals stored as codeSyntax, six duplicate names). Presence checks were hiding the defects the design-to-code bridge trips on.
-
-### Earlier (June 2026)
-
-Doc-only additions driven by a real end-to-end build session (warm earthy brand DS for a Figma Make app — 94 variables across Primitives / Semantic / Typography, responsive type, status colours added after the fact). **No behavioural Critical Rule or script changes.** Not yet eval-covered — assign a version after the next eval pass, or treat as provisional.
-
-### Added
-
-- **Phase 2c — Semantic layer completeness checklist.** Enumerates the full role surface (bg / text / border / interactive / status / accent) and makes **status** explicitly mandatory for app UIs. Adds a rule for palettes with no status hue: surface the gap and propose a functional, AA-checked status ramp rather than silently skipping or forcing a brand colour into `error`. **Why:** in the source session the Semantic layer was first built without status colours and the user had to catch the missing `error` token — the build flow (Phase 2 / 4) never mentioned status; it lived only in `token-taxonomy.md` tables.
-- **Phase 2b — responsive / fluid type via collection modes.** Documents modelling `Desktop` / `Mobile` as two modes on the Typography collection (each token carries a per-mode value = `clamp()` endpoints), previewing mobile with `setExplicitVariableModeForCollection`. **Why:** the taxonomy previously only knew Light / Dark modes; responsive type had no documented pattern and had to be derived by hand.
-- **Phase 3 — foundations specimen anatomy.** Concrete colour-card spec (swatch + name + `--token` + HEX, role-grouped, luminance-based border for light swatches) and a Desktop / Mobile type-specimen layout. **Why:** Phase 3 previously said only "rendered swatches" with no reusable card structure.
+- **Phase 2c — Semantic layer completeness checklist.** Enumerates the full role surface (bg / text / border / interactive / status / accent) and makes **status** explicitly mandatory for app UIs. Adds a rule for palettes with no status hue: surface the gap and propose a functional, AA-checked status ramp rather than silently skipping or forcing a brand colour into `error`. Before this, the build flow (Phase 2 / 4) never mentioned status; it lived only in `token-taxonomy.md` tables.
+- **Phase 2b — responsive / fluid type via collection modes.** Documents modelling `Desktop` / `Mobile` as two modes on the Typography collection (each token carries a per-mode value = `clamp()` endpoints), previewing mobile with `setExplicitVariableModeForCollection`. The taxonomy previously only knew Light / Dark modes.
+- **Phase 3 — foundations specimen anatomy.** Concrete colour-card spec (swatch + name + `--token` + HEX, role-grouped, luminance-based border for light swatches) and a Desktop / Mobile type-specimen layout. Phase 3 previously said only "rendered swatches".
 - **`token-taxonomy.md` — status-colour guidance + responsive-type-modes note** mirroring the above.
+- **"Other design surfaces" section in SKILL.md.** Rules for the case where screens are drawn in a second canvas tool with its own token store: the tokens file stays the source of truth; the tool's tokens are created from the file through its token API; before any hand-off the tool's token list is read back and diffed against the file (colors, spacing, radius 1:1; line-height drift recorded, not fixed); a token that exists only in the tool is an invented rule and needs a decision; inspect mode's semantic-role coverage applies to a design-system document as it does to a Figma library.
 
-### Real-world signal (not a change)
+### Removed
 
-- The session exercised idempotent batching (scopes + codeSyntax across 20 variables in one `use_figma` call; binding 20 swatches in one call) with no correctness issues — a data point for the deferred BACKLOG item *"Loosen Critical Rule #1 to allow idempotent batches."*
+- **`BACKLOG.md`** — planning notes moved out of the repository. Unshipped ideas are tracked privately.
 
 ## 2.0.3 — 2026-05-27
 
-Patch release. Three small additions driven by real production use across ~60 component sessions in a large production DS and validated via a 6-subagent eval-loop. **No changes to behavioural Critical Rules** — original Rule #1 (one component per `use_figma` call) and the slot/description/detach rules are unchanged. Only adds a project-overrides loader, loosens one validation cadence rule that the rate limit was hurting in practice, and moves examples + edge cases into reference files so they don't load on every session.
-
-The eval-loop also tested two additional changes (a touch-up workflow path and a loosening of Rule #1 to allow idempotent batching) but evidence was inconclusive — they're left out of this release pending dedicated tests. See `BACKLOG.md` for the rationale.
+Patch release. Three small additions. **No changes to behavioural Critical Rules** — original Rule #1 (one component per `use_figma` call) and the slot/description/detach rules are unchanged. Only adds a project-overrides loader, loosens one validation cadence rule that the rate limit was hurting in practice, and moves examples + edge cases into reference files so they don't load on every session.
 
 ### Added
 
-- **Phase 1d — project overrides loader.** Skill now checks `<projectRoot>/.claude/rules/design-system.md`, `<projectRoot>/.claude/rules/component-build-rules.md`, and `<projectRoot>/CLAUDE.md` ("Design System" / "Components — Build Rules" sections) on entry. Loads them as **extensions** (not replacements) of this skill's Critical Rules. Surfaces the loaded path to the user in one line. **Why:** the eval-loop's single strongest signal — without the loader, the skill grades component descriptions against its own generic template (PURPOSE / BEHAVIOR / COMPOSITION / USAGE / CODE GENERATION NOTES) even when the project has documented different conventions. The result is confidently-wrong advice: it flagged a fully-compliant production banner as "incomplete" for missing sections the team intentionally doesn't use. Score: with loader 7/7, without 2/7 on the descriptions audit.
+- **Phase 1d — project overrides loader.** Skill now checks `<projectRoot>/.claude/rules/design-system.md`, `<projectRoot>/.claude/rules/component-build-rules.md`, and `<projectRoot>/CLAUDE.md` ("Design System" / "Components — Build Rules" sections) on entry. Loads them as **extensions** (not replacements) of this skill's Critical Rules. Surfaces the loaded path to the user in one line. **Why:** without the loader, the skill grades component descriptions against its own generic template (PURPOSE / BEHAVIOR / COMPOSITION / USAGE / CODE GENERATION NOTES) even when the project has documented different conventions, and flags compliant descriptions as incomplete for sections the team does not use.
 
 ### Changed
 
-- **Critical Rule #2 — validation depth ladder.** Old rule: `get_metadata + get_screenshot` after every mutation. New rule: structural changes (variants, auto-layout, properties, `swapComponent`) → external `get_metadata + get_screenshot`; binding / description / codeSyntax / scope / rename changes → verify INSIDE the same script via property reads; end-of-batch → one screenshot for visual sanity. **Why:** `get_screenshot` is the heaviest call and Figma MCP has a ~15 calls/min rate limit; matching depth to risk frees that budget for the structural changes that actually need visual verification. Validated by the eval-loop — same audit correctness on a 3-CS Tabs family with 1 fewer `use_figma` call.
+- **Critical Rule #2 — validation depth ladder.** Old rule: `get_metadata + get_screenshot` after every mutation. New rule: structural changes (variants, auto-layout, properties, `swapComponent`) → external `get_metadata + get_screenshot`; binding / description / codeSyntax / scope / rename changes → verify INSIDE the same script via property reads; end-of-batch → one screenshot for visual sanity. **Why:** `get_screenshot` is the heaviest call and Figma MCP rate-limits it (the "~15 calls/min" figure this release used is superseded by the per-tier limits in 2.0.4); matching depth to risk frees that budget for the structural changes that actually need visual verification. Same audit correctness on a 3-CS Tabs family with 1 fewer `use_figma` call.
 
 ### Moved (no behaviour change)
 
 - **Examples 2–8 → `references/examples.md`.** SKILL.md keeps a single inline example for the inspect mode; the other seven (full build, slot retrofit, narrow-scope inspect, end-to-end Phase 6, code-export-only, etc.) load on demand.
-- **15 «Common edge cases» entries → `references/edge-cases.md`.** Plus 3 new entries surfaced by the eval-loop: description round-trip encoding (`setB.description = setA.description` double-encodes `&`), Figma MCP rate-limit symptoms, and the override-vs-Critical-Rule conflict precedence.
+- **15 «Common edge cases» entries → `references/edge-cases.md`.** Plus 3 new entries: description round-trip encoding (`setB.description = setA.description` double-encodes `&`), Figma MCP rate-limit symptoms, and the override-vs-Critical-Rule conflict precedence.
 - **Net effect on SKILL.md:** 540 lines → ~430 lines. Saves ~5–10k tokens per session entry.
 
-### Not in this release (tested, not enough evidence)
+### Not in this release (insufficient evidence)
 
-- **Touch-up workflow path** — proposed as a faster path for single-binding tweaks / description fixes. Wasn't covered by any of the three evals run; promoted to BACKLOG for a dedicated test.
-- **Loosen Critical Rule #1 to allow idempotent batches** — proposed to let safe batch operations (binding the same variable across N nodes, codeSyntax pass, descriptions across a CS family) share one `use_figma` call. The sandbox-build eval that would have tested this hit a contamination issue (both with-skill and old-skill subagents wrote to the same Figma file in parallel); promoted to BACKLOG with a note to use isolated sandbox files next time.
-- **"If you read nothing else" compact reference** at the end of SKILL.md — no eval coverage. Promoted to BACKLOG; reconsider only if mid-session re-anchoring proves to be a recurring need.
+- **Touch-up workflow path** — a faster path for single-binding tweaks / description fixes.
+- **Loosen Critical Rule #1 to allow idempotent batches** — safe batch operations (binding the same variable across N nodes, codeSyntax pass, descriptions across a CS family) sharing one `use_figma` call.
+- **"If you read nothing else" compact reference** at the end of SKILL.md.
 
 ## 2.0.1 — 2026-04-28
 
@@ -183,7 +163,7 @@ The skill description updates automatically once Claude reads the new SKILL.md.
 
 ### Fixed
 
-#### Audit scripts (carried over from internal audit-design-system development)
+#### Audit scripts
 
 - **Template literal spacing.** Removed extraneous spaces inside `${...}` and trailing spaces before closing backticks throughout all audit scripts.
 - **Touch target check now finds Default variant correctly.** Was previously using `cs.children[0]`, which is not necessarily the Default variant. Now searches by `State=Default` with fallback.
@@ -206,8 +186,8 @@ The skill description updates automatically once Claude reads the new SKILL.md.
 
 ### Fixed
 
-- **Duplicate primitive detection now groups by name domain.** `spacing/16` and `type/size/body` happen to share the numeric value 16 but are not duplicates. Cross-domain collisions (spacing × radius × type) no longer trigger warnings. Same-domain duplicates (e.g., two spacing variables with the same value) are still flagged. On the Skill Translation Platform DS file (138 variables), this eliminated 6 false-positive warnings.
-- **Scope-aware contrast pairing for inverse text tokens.** Text tokens matching `color/text/on-{surface}` are now tested only against background variables where `{surface}` appears as a name segment (e.g., `color/text/on-wine` × `color/bg/wine`, `color/bg/wine-subtle`). Pairing against unrelated surfaces like `color/bg/card` is skipped — these pairs are not design bugs, they're combinations that would never be used in practice. On the test file this eliminated 10 false-positive contrast failures. A new `contrast.skippedInverseMismatches` count is included in the output.
+- **Duplicate primitive detection now groups by name domain.** `spacing/16` and `type/size/body` happen to share the numeric value 16 but are not duplicates. Cross-domain collisions (spacing × radius × type) no longer trigger warnings. Same-domain duplicates (e.g., two spacing variables with the same value) are still flagged. On a 138-variable test file this eliminated 6 false-positive warnings.
+- **Scope-aware contrast pairing for inverse text tokens.** Text tokens matching `color/text/on-{surface}` are now tested only against background variables where `{surface}` appears as a name segment (e.g., `color/text/on-accent` × `color/bg/accent`, `color/bg/accent-subtle`). Pairing against unrelated surfaces like `color/bg/card` is skipped — these pairs are not design bugs, they're combinations that would never be used in practice. On the test file this eliminated 10 false-positive contrast failures. A new `contrast.skippedInverseMismatches` count is included in the output.
 - **Foundations / Cover / Components page checks downgraded to info-level.** Product design files that don't follow library structure no longer receive warnings for missing documentation pages. The info-level output still surfaces when pages are absent, so teams building a library can still see the gap — it just doesn't inflate the warning count for product files.
 - **`use_figma` compatibility.** The script is now structured as a named `runAudit()` async function with a top-level `return await runAudit()`. Under `use_figma`, which wraps scripts in an async context, this returns the audit report directly. No more need for agents to manually unwrap an IIFE or swap `closePlugin` calls. For standalone plugin usage, replace the final `return` with `runAudit().then((r) => figma.closePlugin(JSON.stringify(r)))`.
 - **`figma.loadAllPagesAsync` fallback.** If the method is unavailable in the current API surface, the script falls back to iterating `figma.root.children` with `setCurrentPageAsync` per page. This was the adaptation Claude Code made manually during v1.3.0 testing — now it's built in.
@@ -221,7 +201,7 @@ The skill description updates automatically once Claude reads the new SKILL.md.
 
 ### Validated on
 
-- Skill Translation Platform DS file (Case 2 Untranslated portfolio project): 138 variables, 77 components, 6 component sets, 10 pages. Audit completed without errors. After v1.3.1 fixes, the previous 16 false-positive warnings (6 cross-domain duplicates, 10 inverse-surface contrast mismatches) are eliminated.
+- A 138-variable design-system file (77 components, 6 component sets, 10 pages). Audit completed without errors. After v1.3.1 fixes, the previous 16 false-positive warnings (6 cross-domain duplicates, 10 inverse-surface contrast mismatches) are eliminated.
 
 ### Notes
 
@@ -239,7 +219,7 @@ No workflow changes. v1.3.1 is a bug-fix release on top of v1.3.0 — all added 
 - **TEXT component property audit.** Flags text nodes inside components without `componentPropertyReferences.characters` (label overrides revert on component update). Skips nodes whose names start with `.` or `_` (private/decorative by convention) and strings of 2 or fewer characters (icons, glyphs).
 - **Hardcoded stroke detection.** Mirrors hardcoded fill detection for `node.strokes`.
 - **Alias resolution** for contrast checks, with mode-name preference across collections, loop-safe via a visited set, memoized for performance.
-- **Positioning section in README** clarifying when to use this skill vs Anthropic's Claude Design (launched 2026-04-17). Claude Design extracts an internal design system for its own prototyping environment; this skill puts the system into Figma with full Plugin API rigor for teams where Figma is the canonical source of truth.
+- **Positioning section in README** clarifying when to use this skill: it puts the system into Figma with full Plugin API rigor for teams where Figma is the canonical source of truth, as opposed to tools that extract a design system into their own prototyping environment.
 - **WCAG contrast validation rationale** added to the "Design decisions" section in README.
 
 ### Changed
