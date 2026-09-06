@@ -413,6 +413,17 @@ Report file paths to user. Phase 6 complete.
 
 ---
 
+## Other design surfaces
+
+Build mode and Phase 6 sync are Figma-only: variables ↔ code. Some teams draw screens in a second canvas tool that keeps its own token store. In that case the source of truth stays the tokens file (or the design-system document that holds the same values), and the tool's tokens are a **projection** of it:
+
+- Create the tool's tokens from the file through its token API, never by hand from memory.
+- Before any hand-off (exports into the repo, a task for a builder), read the tool's token list back and diff it against the file. Colors, spacing and radius must match 1:1. Line-height may drift where the tool approximates it in px; record the drift, don't fix it.
+- A token that exists in the tool and not in the file is an invented rule. Report it for a decision, then add it to the file first and to the tool second.
+- Inspect mode's semantic-role coverage (the mandatory status group, AA pairs, code-ready names) applies to a design-system document exactly as it applies to a Figma library. Run it on the file.
+
+This skill does not draw screens in any tool. Tool mechanics belong to that tool's own skill or guide.
+
 ## Example (inline reference)
 
 **Inspect mode — quality report on someone else's file**

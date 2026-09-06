@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### 2026-09-06 — Other design surfaces
+
+#### Added
+
+- **"Other design surfaces" section in SKILL.md.** Rules for the case where screens are drawn in a second canvas tool with its own token store: the tokens file stays the source of truth; the tool's tokens are created from the file through its token API; before any hand-off the tool's token list is read back and diffed against the file (colors, spacing, radius 1:1; line-height drift recorded, not fixed); a token that exists only in the tool is an invented rule and needs a decision; inspect mode's semantic-role coverage applies to a design-system document as it does to a Figma library.
+
 ### 2026-08-24 — Figma platform sync + validator hardening
 
 Driven by Figma's August 2026 platform changes (rate-limit tiers, agent skills, text wrap, figma-use Rule #18) and by two months of production use of the skill on two design-system files — one small library (~200 variables), one large enterprise system (36 pages, 162 variables, a documented SCSS token convention). Script changes were verified live on both files before release. Not yet eval-covered.
