@@ -1,5 +1,5 @@
 /**
- * QA Validation Script for Design System — v1.3.1
+ * QA Validation Script for Design System — v1.4.0
  *
  * Audits a Figma design system file and returns a structured report.
  * Designed to run inside the Figma MCP server's `use_figma` context.
@@ -21,7 +21,8 @@
  *  - Text nodes without TEXT component properties
  *  - WCAG AA contrast for color/text × color/bg pairs in Light and Dark,
  *    scoped so that `color/text/on-{surface}` is only tested against
- *    backgrounds whose name contains `{surface}` as a segment.
+ *    backgrounds whose name contains `{surface}` as a segment. Alpha tokens
+ *    (a colour alias carrying an opacity) are composited before measuring.
  *
  * Per SKILL.md Critical Rule #3: this script flags hardcoded *colors*
  * only (fills, strokes). Component-specific pixel dimensions outside
@@ -95,6 +96,25 @@ async function runAudit() {
     return (lighter + 0.05) / (darker + 0.05);
   };
 
+  // WCAG ratios are defined on opaque colours. An alpha token (an alias carrying
+  // an opacity) resolves to a < 1, so flatten it before measuring: identity on
+  // an opaque colour, which keeps every ratio on a file without alpha tokens
+  // byte-identical.
+  const composite = (fg, bg) => {
+    const a = fg.a === undefined ? 1 : fg.a;
+    if (a >= 1) return { r: fg.r, g: fg.g, b: fg.b };
+    return {
+      r: fg.r * a + bg.r * (1 - a),
+      g: fg.g * a + bg.g * (1 - a),
+      b: fg.b * a + bg.b * (1 - a),
+    };
+  };
+  const isTranslucent = (c) => c && c.a !== undefined && c.a < 1;
+  // What a translucent BACKGROUND sits on. Nothing in the variable graph says,
+  // so assume the page is white; the alternative (measuring the token's own
+  // alpha away) would report a semi-transparent scrim as opaque.
+  const PAGE_BASE = { r: 1, g: 1, b: 1 };
+
   // Check whether a paint has a color variable binding.
   // Handles both per-paint (paint.boundVariables.color) and node-level
   // (node.boundVariables.fills[idx] / strokes[idx]) binding paths.
@@ -109,9 +129,68 @@ async function runAudit() {
     return false;
   };
 
+  // Which mode of the aliased variable's collection answers for `modeId` of the
+  // referring variable's collection. Prefers a mode of the same name; falls back
+  // to the collection default.
+  const targetModeIdFor = async (variable, modeId, aliased) => {
+    const aliasedCol = await figma.variables.getVariableCollectionByIdAsync(
+      aliased.variableCollectionId
+    );
+    const origCol = await figma.variables.getVariableCollectionByIdAsync(
+      variable.variableCollectionId
+    );
+    const origModeName = origCol?.modes.find((m) => m.modeId === modeId)?.name;
+    const target =
+      aliasedCol?.modes.find((m) => m.name === origModeName) ||
+      aliasedCol?.modes.find((m) => m.modeId === aliasedCol.defaultModeId) ||
+      aliasedCol?.modes[0];
+    return target ? target.modeId : null;
+  };
+
   // Resolve a variable's color value for a given mode, following alias chains.
-  // Prefers modes with matching names across collections; falls back to default.
+  // Three value shapes live in `valuesByMode` of a COLOR variable:
+  //   { r, g, b, a }                                     a literal
+  //   { type: "VARIABLE_ALIAS", id }                     a bare alias
+  //   { color: <literal | alias>, opacity: <number | alias> }
+  //       an alias (or literal) carrying its own opacity — the alpha-token
+  //       shape. `opacity` is a PERCENT, 0–100, and may itself alias a FLOAT
+  //       variable (scoped COLOR_OPACITY). It multiplies the alpha of the
+  //       colour it points at, so resolve the colour FIRST, the opacity second.
+  // A reader that tests only the first two shapes returns null here, and a null
+  // silently drops the variable from every check downstream — which is exactly
+  // the disabled / overlay / scrim tokens this shape exists for.
+  // Returns { r, g, b, a } or null.
   const colorCache = new Map();
+
+  // A colour slot: a bare alias, or a literal. Used for `raw` and for `raw.color`.
+  const resolveColorLike = async (value, ownerVariable, modeId, visited) => {
+    if (value && typeof value === "object" && value.type === "VARIABLE_ALIAS") {
+      const aliased = await figma.variables.getVariableByIdAsync(value.id);
+      if (!aliased) return null;
+      const targetModeId = await targetModeIdFor(ownerVariable, modeId, aliased);
+      if (!targetModeId) return null;
+      return resolveColorValue(aliased, targetModeId, visited);
+    }
+    if (value && typeof value === "object" && "r" in value) return value;
+    return null;
+  };
+
+  // An opacity slot: a percent, or an alias to a FLOAT variable holding one.
+  // Absent means fully opaque.
+  const resolveOpacityPercent = async (value, ownerVariable, modeId) => {
+    if (value === undefined || value === null) return 100;
+    if (typeof value === "number") return value;
+    if (value && typeof value === "object" && value.type === "VARIABLE_ALIAS") {
+      const aliased = await figma.variables.getVariableByIdAsync(value.id);
+      if (!aliased) return null;
+      const targetModeId = await targetModeIdFor(ownerVariable, modeId, aliased);
+      if (!targetModeId) return null;
+      const raw = aliased.valuesByMode[targetModeId];
+      return typeof raw === "number" ? raw : null;
+    }
+    return null;
+  };
+
   const resolveColorValue = async (variable, modeId, visited = new Set()) => {
     const cacheKey = `${variable.id}::${modeId}`;
     if (colorCache.has(cacheKey)) return colorCache.get(cacheKey);
@@ -119,53 +198,29 @@ async function runAudit() {
     visited.add(variable.id);
 
     const raw = variable.valuesByMode[modeId];
-    if (raw === undefined) {
+    if (raw === undefined || raw === null || typeof raw !== "object") {
       colorCache.set(cacheKey, null);
       return null;
     }
 
-    if (raw && typeof raw === "object" && raw.type === "VARIABLE_ALIAS") {
-      const aliased = await figma.variables.getVariableByIdAsync(raw.id);
-      if (!aliased) {
-        colorCache.set(cacheKey, null);
-        return null;
+    let resolved = null;
+    if (raw.color !== undefined) {
+      const base = await resolveColorLike(raw.color, variable, modeId, visited);
+      const percent = await resolveOpacityPercent(raw.opacity, variable, modeId);
+      if (base && percent !== null) {
+        resolved = {
+          r: base.r,
+          g: base.g,
+          b: base.b,
+          a: (base.a === undefined ? 1 : base.a) * (percent / 100),
+        };
       }
-      const aliasedCol =
-        await figma.variables.getVariableCollectionByIdAsync(
-          aliased.variableCollectionId
-        );
-      const origCol = await figma.variables.getVariableCollectionByIdAsync(
-        variable.variableCollectionId
-      );
-      const origModeName = origCol?.modes.find(
-        (m) => m.modeId === modeId
-      )?.name;
-      const target =
-        aliasedCol?.modes.find((m) => m.name === origModeName) ||
-        aliasedCol?.modes.find(
-          (m) => m.modeId === aliasedCol.defaultModeId
-        ) ||
-        aliasedCol?.modes[0];
-      if (!target) {
-        colorCache.set(cacheKey, null);
-        return null;
-      }
-      const resolved = await resolveColorValue(
-        aliased,
-        target.modeId,
-        visited
-      );
-      colorCache.set(cacheKey, resolved);
-      return resolved;
+    } else {
+      resolved = await resolveColorLike(raw, variable, modeId, visited);
     }
 
-    if (raw && typeof raw === "object" && "r" in raw) {
-      colorCache.set(cacheKey, raw);
-      return raw;
-    }
-
-    colorCache.set(cacheKey, null);
-    return null;
+    colorCache.set(cacheKey, resolved);
+    return resolved;
   };
 
   // Extract the top-level domain from a variable name (first segment before /).
@@ -285,7 +340,9 @@ async function runAudit() {
       }
     }
 
-    // Duplicate detection — only for Primitives with raw values (not aliases).
+    // Duplicate detection — only for Primitives with raw values. A bare alias
+    // and an alias-with-opacity ({color, opacity}) are references, not values:
+    // neither produces a key, so neither is reported as a duplicate.
     // Grouped by domain so cross-domain collisions (spacing × type-size) don't fire.
     if (collection.name.toLowerCase().includes("primitiv")) {
       const domain = getDomain(v.name);
@@ -632,7 +689,9 @@ async function runAudit() {
         const bColor = await resolveColorValue(bv, mode.modeId);
         if (!bColor) continue;
 
-        const ratio = contrastRatio(tColor, bColor);
+        const bgSolid = composite(bColor, PAGE_BASE);
+        const textSolid = composite(tColor, bgSolid);
+        const ratio = contrastRatio(textSolid, bgSolid);
         const entry = {
           text: tv.name,
           bg: bv.name,
@@ -640,6 +699,9 @@ async function runAudit() {
           passAA: ratio >= 4.5,
           passAALarge: ratio >= 3,
         };
+        if (isTranslucent(tColor) || isTranslucent(bColor)) {
+          entry.alphaComposited = true;
+        }
         contrastReport[label].push(entry);
         if (!entry.passAALarge) {
           contrastReport.failures++;
