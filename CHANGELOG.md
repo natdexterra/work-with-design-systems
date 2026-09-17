@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+Nothing yet.
+
 ## 2.1.0 — 2026-09-17
 
 Minor release. A Figma colour variable can now alias another colour variable **and** carry an opacity without detaching from the alias — the shape every semi-transparent token wants. Every reader in this repo tested two value shapes and returned `null` on the third, so the tokens written this way disappeared from the audits instead of failing them. All four scripts read it now, and the repo gains a fixed set that runs them in Node.

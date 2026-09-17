@@ -1,0 +1,5 @@
+# Normalise line endings on check-in so a CRLF editor never rewrites a whole file.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
