@@ -26,7 +26,7 @@ compatibility: >
   outputs file contents inline for the user to copy).
 metadata:
   mcp-server: figma
-  version: 2.0.4
+  version: 2.1.0
 ---
 
 # Work with design systems in Figma
@@ -53,7 +53,7 @@ These apply to BOTH modes — inspect and build.
    - **Binding / description / codeSyntax / scope / rename change**: verify INSIDE the same script via `node.boundVariables` / `node.description` / `variable.codeSyntax` / `variable.scopes` reads, return as part of the result. No external `get_screenshot` needed — Figma is deterministic on these.
    - **End of batch**: one `get_screenshot` of the parent CS for visual sanity.
    Why: `get_screenshot` is the heaviest call, and Figma MCP rate-limits its read tools per plan and seat — **Professional Full/Dev seat: 10 calls/min and 200/day**; Organization: 15/min, 200/day; Enterprise: 20/min, 600/day; Starter: 20/month; View/Collab seats: 6/month (Figma's `rate-limits-access` doc, 2026-08). Only `whoami`, `create_new_file`, `add_code_connect_map` are exempt. The **daily** cap is the one that bites: a per-component inspect pass with a screenshot each can spend a whole day's budget on one mid-size file. Matching depth to risk frees that budget for the structural changes that actually need visual verification. Run `whoami` when unsure which tier applies.
-3. **Bind visual properties to variables when a scale value exists.** Fills, strokes, padding, itemSpacing, corner radius. For component-specific dimensions that don't match any scale value (e.g., 3px internal padding on a toggle track, 1px divider offset), hardcoded values are acceptable — document these exceptions in the component description.
+3. **Bind visual properties to variables when a scale value exists.** Fills, strokes, padding, itemSpacing, corner radius. For component-specific dimensions that don't match any scale value (e.g., 3px internal padding on a toggle track, 1px divider offset), hardcoded values are acceptable — document these exceptions in the component description. **A tint of an existing colour is a token too:** a colour variable can alias another colour variable and carry its own opacity (`{ color: <alias>, opacity: <percent> }`), so a disabled, ghost, overlay or scrim value is an alias-with-opacity token — never a bound fill with a raw opacity typed on the paint, which no export and no audit can read. See `references/build/token-taxonomy.md`, "Alpha tokens".
 4. **lineHeight variables must store pixel values, not percentages.** Figma variables are unitless. When bound to lineHeight, the value is interpreted as pixels. If your DS defines line heights as percentages (e.g., 150%), convert before storing: fontSize × (percentage / 100). Text styles can store {unit: "PERCENT", value: 150} — variables cannot.
 5. **Set codeSyntax.WEB on every variable — one unique token name per variable.** Without it, agents using `get_design_context` get raw Figma variable names instead of code token names. Set during creation, not as a separate pass. Presence is not enough: a semantic token gets its **own** name (`--color-text-link`), never the name of the primitive it aliases (six roles sharing `--color-primary-500` cannot be told apart in a stylesheet), and never a **value** (`1.25rem`, `9999px`, `#fff`, `400` — Phase 6 would emit `--1rem: 1rem`). Spell it in the codebase's convention: a CSS custom property as `--name` or `var(--name)` (Figma's own examples use the `var()` form) is what Phase 6 `tokens.css` consumes; an SCSS `$token` or a bare `token-name` is valid when the project's documentation prescribes it, but Phase 6 cannot consume it. The validator reports values and duplicates as errors and non-CSS conventions as info.
 6. **Set explicit variable scopes.** Never leave ALL_SCOPES. Background colors get FRAME_FILL + SHAPE_FILL. Text colors get TEXT_FILL. Spacing gets GAP + WIDTH_HEIGHT. Radius gets CORNER_RADIUS. Font size gets FONT_SIZE. **Empty `scopes` (`[]`) is the opposite failure and worse:** the variable is invisible in every property picker, so designers hand-paste hex into frames (seen in practice: 46 primitives, all `[]`, and hex pasted by hand). The validator reports both.
@@ -328,6 +328,8 @@ Run `scripts/build/validate-design-system.js` for full file audit (variables and
 - All compound components have slot decision documented
 
 Build a test page assembling several components together to verify composability.
+
+**If you edit any script in `scripts/`, run the fixed set before and after the edit:** `npm test` (no dependencies, Node only) runs the scripts against the JSON fixtures in `tests/fixtures/` through a mock `figma`, compares them to the hand-written answer keys in `tests/expected/`, and prints a fixture × check grid with a score line. A red row before the edit is what the edit must turn green; a green row that goes red is the regression. A fixture is cheap — add one for the shape you are fixing rather than checking the change by hand on a live file.
 
 If the file is a **published library**, remind the user to click **Publish** — consumer files keep the old scopes, names and bindings until they accept the library update, so a fix that validates here is invisible downstream until then.
 

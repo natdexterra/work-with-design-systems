@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased]
+
+Nothing yet.
+
+## 2.1.0 — 2026-09-17
+
+Minor release. A Figma colour variable can now alias another colour variable **and** carry an opacity without detaching from the alias — the shape every semi-transparent token wants. Every reader in this repo tested two value shapes and returned `null` on the third, so the tokens written this way disappeared from the audits instead of failing them. All four scripts read it now, and the repo gains a fixed set that runs them in Node.
+
+### Fixed
+
+- **Alpha tokens resolved to `null` and dropped out silently.** `validate-design-system.js` tested `raw.type === "VARIABLE_ALIAS"` or `'r' in raw`; a value of the shape `{ color: <alias>, opacity: <percent> }` matched neither, so the variable resolved to nothing and its contrast pairs were skipped without a word. The tokens written that way are the disabled, ghost, overlay and scrim ones — the ones most likely to fail contrast. The resolver now branches on `raw.color` first, resolves the colour through the existing mode-matching (lifted into a shared helper), then the opacity — a percent, or an alias to a FLOAT variable holding one — and multiplies it into the aliased colour's own alpha.
+- **Contrast was measured on translucent colours.** A ratio is defined on opaque colours, so the pass now composites the background over a white page base and the text over that background before measuring, and marks the entry `alphaComposited`. Both steps are the identity at `a = 1`: a file with no alpha token scores exactly as before, verified on a live design-system file (85 issues before and after, 72 / 12 / 1).
+- **`exportTokensToCSS.js` wrote `[object Object]`.** The shape carries neither `type` nor `r`, so it fell through both object branches into the string branch and Phase 6 emitted a broken declaration. It now emits the alias entry it always did — `ref` kept — plus `opacity`, `opacityRef` when the percent is itself a token, and a ready `css` value: `color-mix(in srgb, var(--ref) N%, transparent)`. `color-mix` over relative colour syntax for browser support today; the comment names the alternative so the choice can be revisited in one place.
+- **The raw-opacity warning had no remedy.** `audit-tokens.js` reported "raw opacity on bound fill" and the reference called it maybe intentional — true while a bound colour plus a typed opacity was the only way to express a tint. The warning now states the remedy and names the file's own token when one matches the colour and percent, filtered by the scope that makes it bindable in that place, so a `TEXT_FILL` token is not proposed for a rectangle.
+- **Auto-fix bound opaque tokens over raw opacities.** `fixHardcodedToTokens.js` matched such a paint on colour alone and bound it at confidence 1.00, leaving the raw opacity in place to multiply with the token's. It now skips that paint when a matching alpha token exists and names it for a human to bind; alias-with-opacity values are explicitly excluded from distance matching rather than dropped by a side effect of the `'r' in candVal` test. Limit, stated in the script: matching reads each collection's default mode only, and no alpha token is ever bound automatically.
+
+### Added
+
+- **The fixed set — `npm test`, no dependencies.** `tests/run-script.js` wraps a script's text in an `AsyncFunction` and hands it a mock `figma` built from a JSON fixture, which is what makes these scripts testable at all: they end in a top-level `return` and read a global, so they cannot be imported. `tests/run.js` runs every script named in an answer key, compares the result field by field, and prints a fixture × check grid with one score line, non-zero exit on any FAIL. First fixture `alias-with-opacity` covers all five colour value shapes plus a component set with a bound fill at 10%, a bound stroke at 40% and an unbound fill: 23 checks, 9 green at baseline (the shapes that already worked), 23 after. Runs in 0.01s, so there is no reason to skip it. SKILL.md Phase 5 and the README say to run it before and after every script edit.
+- **"Alpha tokens" in `token-taxonomy.md`.** The two value shapes with `setValueForMode` calls, the percent-not-alpha trap (`opacity: 10`, not `0.1`), aliasing instead of a fourth copy of the colour, a small Opacity group of FLOATs in Primitives scoped `["COLOR_OPACITY"]` (the picker Figma labels "Color variable opacity"; `["OPACITY"]` is the older layer-opacity scope), naming by role rather than by percent, compositing before any contrast claim, and the one CSS value per token. The scope table now has a row for each of the two opacity scopes.
+- **The null-resolution trap in `edge-cases.md`.** The three value shapes side by side, why a reader that knows two fails quietly rather than loudly, and the note that the bundled typings and the REST docs do not describe the shape yet although `setValueForMode` accepts it and `resolveForConsumer` returns `a = opacity / 100`.
+- **Critical Rule #3 says a tint is a token.** One sentence where binding is decided: a disabled, ghost, overlay or scrim value is an alias-with-opacity token, never a bound fill with a raw opacity typed on the paint.
+
 ## 2.0.4 — 2026-09-06
 
 Patch release. Figma platform sync (rate-limit tiers, agent skills, text wrap), validator hardening, semantic-layer and responsive-type guidance, and a note on second design surfaces. Script changes were verified live on two design-system files of different sizes.

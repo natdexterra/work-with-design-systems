@@ -1,0 +1,233 @@
+{
+  "_readme": "Fixture for the alias-with-opacity colour shape. Primitives hold neutral colours and one FLOAT opacity scoped COLOR_OPACITY; Semantic holds one variable per value shape a reader can meet: bare alias, alias + numeric opacity, alias + aliased opacity, literal RGBA with a < 1, and a plain alias to white. Every variable has explicit scopes and a --group--name codeSyntax.WEB so the validator's other rules stay silent and the only findings are the ones under test. The Components page carries one component set with a bound fill at 10% raw opacity (a matching alpha token exists), a bound stroke at 40% (none matches) and an unbound fill.",
+  "currentPageId": "P:foundations",
+  "pages": [
+    { "id": "P:cover", "name": "Cover", "children": [] },
+    { "id": "P:foundations", "name": "Foundations", "children": [] },
+    {
+      "id": "P:components",
+      "name": "Components",
+      "children": [
+        {
+          "id": "N:cs",
+          "name": "Ghost Button",
+          "type": "COMPONENT_SET",
+          "fills": [],
+          "children": [
+            {
+              "id": "N:v1",
+              "name": "State=Default",
+              "type": "COMPONENT",
+              "fills": [],
+              "layoutMode": "NONE",
+              "children": [
+                {
+                  "id": "N:bg1",
+                  "name": "BG",
+                  "type": "RECTANGLE",
+                  "fills": [
+                    {
+                      "type": "SOLID",
+                      "color": { "r": 0.2, "g": 0.4, "b": 0.8 },
+                      "opacity": 0.1,
+                      "boundVariables": { "color": { "type": "VARIABLE_ALIAS", "id": "V:blue500" } }
+                    }
+                  ],
+                  "strokes": [],
+                  "boundVariables": { "fills": [{ "type": "VARIABLE_ALIAS", "id": "V:blue500" }] }
+                },
+                {
+                  "id": "N:ring",
+                  "name": "Ring",
+                  "type": "RECTANGLE",
+                  "fills": [],
+                  "strokes": [
+                    {
+                      "type": "SOLID",
+                      "color": { "r": 0.2, "g": 0.4, "b": 0.8 },
+                      "opacity": 0.4,
+                      "boundVariables": { "color": { "type": "VARIABLE_ALIAS", "id": "V:blue500" } }
+                    }
+                  ],
+                  "boundVariables": { "strokes": [{ "type": "VARIABLE_ALIAS", "id": "V:blue500" }] }
+                }
+              ]
+            },
+            {
+              "id": "N:v2",
+              "name": "State=Hover",
+              "type": "COMPONENT",
+              "fills": [],
+              "layoutMode": "NONE",
+              "children": [
+                {
+                  "id": "N:bg2",
+                  "name": "BG",
+                  "type": "RECTANGLE",
+                  "fills": [
+                    {
+                      "type": "SOLID",
+                      "color": { "r": 0.2, "g": 0.4, "b": 0.8 },
+                      "opacity": 0.1
+                    }
+                  ],
+                  "strokes": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "textStyles": [
+    {
+      "name": "Body/Default",
+      "boundVariables": { "fontSize": { "type": "VARIABLE_ALIAS", "id": "V:op10" } }
+    }
+  ],
+  "effectStyles": [],
+  "paintStyles": [],
+  "collections": [
+    {
+      "id": "C:primitives",
+      "name": "Primitives",
+      "defaultModeId": "m:value",
+      "modes": [{ "modeId": "m:value", "name": "Value" }],
+      "variableIds": ["V:blue500", "V:white", "V:black", "V:op10"]
+    },
+    {
+      "id": "C:semantic",
+      "name": "Semantic",
+      "defaultModeId": "m:light",
+      "modes": [
+        { "modeId": "m:light", "name": "Light" },
+        { "modeId": "m:dark", "name": "Dark" }
+      ],
+      "variableIds": [
+        "V:textLink",
+        "V:textDisabled",
+        "V:bgGhost",
+        "V:bgLegacy",
+        "V:bgPage",
+        "V:scrim"
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "id": "V:blue500",
+      "name": "color/blue-500",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "STROKE_COLOR", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color--blue-500" },
+      "valuesByMode": { "m:value": { "r": 0.2, "g": 0.4, "b": 0.8, "a": 1 } }
+    },
+    {
+      "id": "V:white",
+      "name": "color/neutral-white",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "STROKE_COLOR", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color--neutral-white" },
+      "valuesByMode": { "m:value": { "r": 1, "g": 1, "b": 1, "a": 1 } }
+    },
+    {
+      "id": "V:black",
+      "name": "color/neutral-black",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "STROKE_COLOR", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color--neutral-black" },
+      "valuesByMode": { "m:value": { "r": 0, "g": 0, "b": 0, "a": 1 } }
+    },
+    {
+      "id": "V:op10",
+      "name": "opacity/10",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["COLOR_OPACITY"],
+      "codeSyntax": { "WEB": "--opacity--10" },
+      "valuesByMode": { "m:value": 10 }
+    },
+    {
+      "id": "V:textLink",
+      "name": "color/text/link",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color--text-link" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:blue500" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:blue500" }
+      }
+    },
+    {
+      "id": "V:textDisabled",
+      "name": "color/text/disabled",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color--text-disabled" },
+      "valuesByMode": {
+        "m:light": { "color": { "type": "VARIABLE_ALIAS", "id": "V:blue500" }, "opacity": 10 },
+        "m:dark": { "color": { "type": "VARIABLE_ALIAS", "id": "V:blue500" }, "opacity": 10 }
+      }
+    },
+    {
+      "id": "V:bgGhost",
+      "name": "color/bg/ghost",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "codeSyntax": { "WEB": "--color--bg-ghost" },
+      "valuesByMode": {
+        "m:light": {
+          "color": { "type": "VARIABLE_ALIAS", "id": "V:blue500" },
+          "opacity": { "type": "VARIABLE_ALIAS", "id": "V:op10" }
+        },
+        "m:dark": {
+          "color": { "type": "VARIABLE_ALIAS", "id": "V:blue500" },
+          "opacity": { "type": "VARIABLE_ALIAS", "id": "V:op10" }
+        }
+      }
+    },
+    {
+      "id": "V:bgLegacy",
+      "name": "color/bg/legacy-tint",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "codeSyntax": { "WEB": "--color--bg-legacy-tint" },
+      "valuesByMode": {
+        "m:light": { "r": 0, "g": 0, "b": 0, "a": 0.05 },
+        "m:dark": { "r": 1, "g": 1, "b": 1, "a": 0.05 }
+      }
+    },
+    {
+      "id": "V:bgPage",
+      "name": "color/bg/page",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "codeSyntax": { "WEB": "--color--bg-page" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:white" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:black" }
+      }
+    },
+    {
+      "id": "V:scrim",
+      "name": "color/overlay/scrim",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "codeSyntax": { "WEB": "--color--overlay-scrim" },
+      "valuesByMode": {
+        "m:light": { "color": { "type": "VARIABLE_ALIAS", "id": "V:black" }, "opacity": 60 },
+        "m:dark": { "color": { "type": "VARIABLE_ALIAS", "id": "V:black" }, "opacity": 60 }
+      }
+    }
+  ]
+}

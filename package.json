@@ -1,0 +1,13 @@
+{
+  "name": "work-with-design-systems-tests",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Fixed set for the use_figma scripts of the work-with-design-systems skill. No dependencies: node tests/run.js.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "license": "MIT"
+}

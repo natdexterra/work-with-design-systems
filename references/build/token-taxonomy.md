@@ -52,6 +52,31 @@ Each Semantic token aliases a Primitive. Example:
 - `color/text/primary` → Light: `color/gray-900`, Dark: `color/gray-50`
 - `color/interactive/primary` → Light: `color/blue-600`, Dark: `color/blue-400`
 
+### Alpha tokens (a tint of an existing colour)
+
+A colour variable can alias another colour variable **and** carry its own opacity, without detaching from the alias. That is the token for anything semi-transparent — disabled text, a ghost or hover surface, an overlay, a scrim, a focus ring tint. Before it existed the only way to express a tint was a bound fill with a raw opacity typed on the paint, which is invisible to code export and to every audit.
+
+Two value shapes, both written with `setValueForMode`:
+
+```js
+// percent literal
+variable.setValueForMode(modeId, { color: { type: "VARIABLE_ALIAS", id: blue500.id }, opacity: 10 });
+// percent from a FLOAT variable
+variable.setValueForMode(modeId, { color: { type: "VARIABLE_ALIAS", id: blue500.id }, opacity: { type: "VARIABLE_ALIAS", id: opacity10.id } });
+```
+
+`opacity` is a **percent, 0–100** — not the 0–1 alpha that `{r,g,b,a}` uses. `resolveForConsumer(node)` returns it as `a = opacity / 100`.
+
+Rules:
+
+- **Alias, never a new literal.** `color/text/disabled` aliases `color/gray-900` at 40%; it does not hold a fourth copy of the grey.
+- **Keep a small Opacity group of FLOATs** in Primitives — `opacity/5`, `opacity/10`, `opacity/40`, `opacity/60` — and alias the opacity slot to them once more than one token uses the same percent. Two tokens that must stay in step (a hover tint and its pressed twin) share the FLOAT; a one-off stays a literal percent.
+- **Scope the FLOATs `["COLOR_OPACITY"]`** — the picker Figma labels "Color variable opacity". `["OPACITY"]` is the older layer-opacity scope and puts the token in a different picker; a FLOAT meant for colour tints wants the first.
+- **Name by role, not by percent.** `color/bg/ghost`, `color/overlay/scrim`, `color/text/disabled` — the percent lives in the value, as with every other token. `color/blue-500-10` is a primitive wearing a semantic hat.
+- **Consumers resolve colour first, opacity second.** A reader that tests only `raw.type === "VARIABLE_ALIAS"` or `'r' in raw` gets `null` on this shape and drops the token silently — see `references/edge-cases.md`. The alpha multiplies the aliased colour's own alpha.
+- **Contrast.** An alpha token has no contrast ratio of its own: composite it over the background it sits on, then measure. A 10% text token passes nothing.
+- **Export.** One CSS value per alpha token: `color-mix(in srgb, var(--color-blue-500) 10%, transparent)`. Relative colour syntax (`rgb(from var(--color-blue-500) r g b / 10%)`) says the same thing with narrower support today.
+
 ### Tier 3: Component (optional)
 
 | Category | Pattern | Examples |
@@ -77,7 +102,8 @@ IMPORTANT: Always set explicit scopes. Never leave ALL_SCOPES — it pollutes ev
 | Font size | `["FONT_SIZE"]` |
 | Font weight | `["FONT_WEIGHT"]` |
 | Line height | `["LINE_HEIGHT"]` |
-| Opacity | `["OPACITY"]` |
+| Layer opacity | `["OPACITY"]` |
+| Colour-variable opacity (a FLOAT used as an alpha token's opacity) | `["COLOR_OPACITY"]` |
 
 ## Multi-brand setup
 

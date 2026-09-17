@@ -28,7 +28,7 @@ The skill auto-detects mode from your request (or asks if unclear).
 
 **Inspect mode** — read-only. Runs audit modules:
 
-- **Module 1 — Token compliance.** Variable binding coverage. Errors: unbound fills, strokes, padding, gaps, corner radii. Warnings: raw opacity, blur radius, animation durations. Text nodes without text styles flagged separately.
+- **Module 1 — Token compliance.** Variable binding coverage. Errors: unbound fills, strokes, padding, gaps, corner radii. Warnings: raw opacity (naming the alias-with-opacity token that replaces it when the file holds one), blur radius, animation durations. Text nodes without text styles flagged separately.
 - **Module 2 — Interactive states.** Compares variants against expected state matrices per component type. Missing states (Pressed on Button, Error on Input) listed with full expected set.
 - **Module 3 — Accessibility.** Computed WCAG 2.1 AA checks. Color contrast (4.5:1 normal, 3:1 large). Touch target (44×44px minimum for interactive). Font size warnings <12px, errors <10px. Focus indicator presence.
 - **Module 4 — Detached instances.** Scans all pages for frames matching component names but not instances. Reports with page, parent path, node ID.
@@ -101,11 +101,29 @@ work-with-design-systems/
 │       ├── exportTokensToCSS.js          # Phase 6a — read variables for export
 │       └── fixHardcodedToTokens.js       # Fuzzy auto-fix for inspect → build flow
 │
+├── tests/                                # The fixed set — `npm test`
+│   ├── run.js                            # Runner: grid + score line
+│   ├── run-script.js                     # Mock figma, so the scripts run in Node
+│   ├── fixtures/                         # One JSON file per Figma shape under test
+│   └── expected/                         # Hand-written answer keys
+│
 └── assets/
     └── file-structure-template.md
 ```
 
 Reference and script files load on demand. Inspect mode loads `references/inspect/` and `scripts/inspect/`. Build mode loads `references/build/` and `scripts/build/`. Phase 6 specifically loads `code-export.md` and `exportTokensToCSS.js`. Critical rules in SKILL.md apply to all modes.
+
+## Tests
+
+The scripts in `scripts/` run inside Figma, but their logic is ordinary JavaScript, so it is checked in Node:
+
+```bash
+npm test          # no dependencies
+```
+
+`tests/run-script.js` wraps a script's text in an `AsyncFunction` and hands it a mock `figma` built from a JSON fixture; `tests/run.js` runs every script named in an answer key, compares the result field by field, and prints a fixture × check grid with a score line, exiting non-zero on any FAIL.
+
+Run it **before and after every script edit**. The point of running it first is the red row: it states what the change has to fix, in the script's own output, before the change exists. Fixtures are JSON — adding one for a new Figma shape costs a few minutes and replaces checking the change by hand on a live file.
 
 ## Installation
 

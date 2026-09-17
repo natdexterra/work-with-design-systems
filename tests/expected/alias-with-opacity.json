@@ -1,0 +1,232 @@
+{
+  "_readme": "Answer key for tests/fixtures/alias-with-opacity.json. Written from the fixture, not from script output: every `basis` quotes the fixture values the expectation is derived from. Contrast ratios come from the WCAG formula applied to the composited colours by hand. Checks whose subject is the OLD behaviour (bare alias, literal RGBA, unbound fill) must be green before and after the fix; the alpha rows are the ones the fix turns green.",
+  "scripts": {
+    "scripts/build/validate-design-system.js": {
+      "args": {},
+      "checks": [
+        {
+          "id": "no-error-class",
+          "basis": "Every variable has explicit non-ALL_SCOPES scopes and a unique --group--name codeSyntax.WEB, both collections are present, both Semantic modes carry a value, and one text style exists with a fontSize binding. Nothing in the fixture is an error, and reading a new value shape must not invent one.",
+          "path": "issues",
+          "count": { "severity": "error" },
+          "expect": 0
+        },
+        {
+          "id": "summary",
+          "basis": "6 contrast failures below 3:1 (see contrast-failures) are the only issues the fixture may produce. All three library pages exist, so no info lines.",
+          "path": "summary",
+          "expect": { "errors": 0, "warnings": 6, "info": 0 }
+        },
+        {
+          "id": "light-pairs",
+          "basis": "2 color/text/* (link, disabled) x 3 color/bg/* (ghost, legacy-tint, page) = 6. A variable that resolves to null drops its pairs silently, so this count is what proves alias-with-opacity resolves at all: with it unread, only color/text/link x {legacy-tint, page} survive.",
+          "path": "contrast.lightPairs",
+          "expect": 6
+        },
+        {
+          "id": "dark-pairs",
+          "basis": "Same 2 x 3 in the Dark mode of the Semantic collection.",
+          "path": "contrast.darkPairs",
+          "expect": 6
+        },
+        {
+          "id": "no-inverse-skips",
+          "basis": "No color/text/on-{surface} token in the fixture, so the inverse-surface filter must skip nothing.",
+          "path": "contrast.skippedInverseMismatches",
+          "expect": 0
+        },
+        {
+          "id": "disabled-on-page-light",
+          "basis": "color/text/disabled = color/blue-500 {0.2,0.4,0.8} at opacity 10 -> a = 0.1. color/bg/page (Light) = color/neutral-white. Composited text = 0.1*blue + 0.9*white = {0.92,0.94,0.98}; L = 0.866337 against L(white) = 1; ratio = 1.05 / 0.916337 = 1.1459 -> 1.15. A 10% text token on the page is a real AA failure, and it is exactly the pair the old reader dropped.",
+          "path": "contrast.worstLight",
+          "where": { "text": "color/text/disabled", "bg": "color/bg/page" },
+          "expect": {
+            "ratio": 1.15,
+            "passAA": false,
+            "passAALarge": false,
+            "alphaComposited": true
+          }
+        },
+        {
+          "id": "disabled-on-page-dark",
+          "basis": "Dark mode: color/bg/page aliases color/neutral-black, so the same 10% blue composites to {0.02,0.04,0.08} over black; ratio 1.06.",
+          "path": "contrast.worstDark",
+          "where": { "text": "color/text/disabled", "bg": "color/bg/page" },
+          "expect": { "ratio": 1.06, "passAA": false, "alphaComposited": true }
+        },
+        {
+          "id": "opaque-pair-unchanged",
+          "basis": "color/text/link is a bare alias to color/blue-500 and color/bg/page (Light) is opaque white: compositing must be the identity on opaque colours, so this pair keeps the ratio the old code computed (5.37) and stays out of worstLight because it passes AA. Guards the live-file regression.",
+          "path": "contrast.worstLight",
+          "count": { "text": "color/text/link", "bg": "color/bg/page" },
+          "expect": 0
+        },
+        {
+          "id": "contrast-failures",
+          "basis": "Below 3:1: color/text/disabled on each of the three backgrounds in both modes (1.14 / 1.14 / 1.15 light, 1.14 / 1.15 / 1.06 dark) = 6. color/text/link passes everywhere (4.68 / 4.80 / 5.37 light, 4.68 / 5.37 / 3.91 dark).",
+          "path": "contrast.failures",
+          "expect": 6
+        },
+        {
+          "id": "alpha-warning-text",
+          "basis": "The composited failure must reach the issue list in the module's existing wording, once.",
+          "path": "issues",
+          "count": {
+            "message": "light: \"color/text/disabled\" on \"color/bg/page\" — contrast 1.15:1 (fails WCAG AA Large 3:1)"
+          },
+          "expect": 1
+        },
+        {
+          "id": "scrim-not-paired",
+          "basis": "color/overlay/scrim is an alpha token but neither color/text/* nor color/bg/*, so the pairing scope is unchanged — it contributes no entry.",
+          "path": "contrast.worstLight",
+          "count": { "bg": "color/overlay/scrim" },
+          "expect": 0
+        }
+      ]
+    },
+    "scripts/build/exportTokensToCSS.js": {
+      "args": {},
+      "checks": [
+        {
+          "id": "bare-alias-unchanged",
+          "basis": "color/text/link Light = {type:VARIABLE_ALIAS, id:color/blue-500}. The bare-alias entry keeps its exact old shape — no opacity key, no css key.",
+          "path": "1.variables",
+          "where": { "name": "color/text/link" },
+          "expect": {
+            "valuesByMode": {
+              "Light": { "type": "alias", "ref": "color/blue-500", "opacity": "__absent__", "css": "__absent__" }
+            }
+          }
+        },
+        {
+          "id": "numeric-opacity",
+          "basis": "color/text/disabled Light = {color: alias color/blue-500, opacity: 10}. opacity is a percent, so the CSS is a 10% mix of the referenced custom property (codeSyntax.WEB --color--blue-500) with transparent.",
+          "path": "1.variables",
+          "where": { "name": "color/text/disabled" },
+          "expect": {
+            "valuesByMode": {
+              "Light": {
+                "type": "alias",
+                "ref": "color/blue-500",
+                "opacity": 10,
+                "css": "color-mix(in srgb, var(--color--blue-500) 10%, transparent)"
+              }
+            }
+          }
+        },
+        {
+          "id": "aliased-opacity",
+          "basis": "color/bg/ghost Light = {color: alias color/blue-500, opacity: alias opacity/10}. The FLOAT resolves in its own collection (Primitives has one mode, Value) to 10, and the entry records which variable carried it.",
+          "path": "1.variables",
+          "where": { "name": "color/bg/ghost" },
+          "expect": {
+            "valuesByMode": {
+              "Light": {
+                "type": "alias",
+                "ref": "color/blue-500",
+                "opacity": 10,
+                "opacityRef": "opacity/10",
+                "css": "color-mix(in srgb, var(--color--blue-500) 10%, transparent)"
+              }
+            }
+          }
+        },
+        {
+          "id": "scrim-60",
+          "basis": "color/overlay/scrim Light = {color: alias color/neutral-black, opacity: 60} — a percent other than 10 proves the number is passed through, not assumed.",
+          "path": "1.variables",
+          "where": { "name": "color/overlay/scrim" },
+          "expect": {
+            "valuesByMode": {
+              "Light": {
+                "type": "alias",
+                "ref": "color/neutral-black",
+                "opacity": 60,
+                "css": "color-mix(in srgb, var(--color--neutral-black) 60%, transparent)"
+              }
+            }
+          }
+        },
+        {
+          "id": "literal-rgba-unchanged",
+          "basis": "color/bg/legacy-tint Light = {r:0,g:0,b:0,a:0.05} — the literal branch, untouched by the fix.",
+          "path": "1.variables",
+          "where": { "name": "color/bg/legacy-tint" },
+          "expect": {
+            "valuesByMode": {
+              "Light": { "type": "color", "hex": "#000000", "rgba": "rgba(0, 0, 0, 0.05)" }
+            }
+          }
+        },
+        {
+          "id": "float-unchanged",
+          "basis": "opacity/10 = 10 in the single Primitives mode — a FLOAT still exports as a number, whatever it is used for.",
+          "path": "0.variables",
+          "where": { "name": "opacity/10" },
+          "expect": { "valuesByMode": { "Value": { "type": "number", "value": 10 } } }
+        }
+      ]
+    },
+    "scripts/inspect/audit-tokens.js": {
+      "args": { "COMPONENT_SET_ID": "N:cs" },
+      "checks": [
+        {
+          "id": "remedy-names-matching-token",
+          "basis": "State=Default / BG is a RECTANGLE whose fill is bound to color/blue-500 and carries raw opacity 0.1. The file holds two alpha tokens at blue-500 x 10%: color/text/disabled (TEXT_FILL) and color/bg/ghost (FRAME_FILL, SHAPE_FILL). A rectangle fill is a shape fill, so the named remedy is color/bg/ghost — declared second in the fixture, so picking it proves the choice is by scope, not by order.",
+          "path": "warnings",
+          "where": { "node": "BG", "property": "fill.opacity" },
+          "expect": {
+            "value": "10%",
+            "issue": "raw opacity on bound fill — use the alias-with-opacity token \"color/bg/ghost\" instead"
+          }
+        },
+        {
+          "id": "remedy-when-nothing-matches",
+          "basis": "State=Default / Ring has a bound stroke at 0.4. No alpha token in the fixture is STROKE_COLOR-scoped or sits at 40%, so the remedy is stated without naming one.",
+          "path": "warnings",
+          "where": { "node": "Ring", "property": "stroke.opacity" },
+          "expect": {
+            "value": "40%",
+            "issue": "raw opacity on bound stroke — add an alias-with-opacity token (alias + 40% opacity) instead of the raw opacity"
+          }
+        },
+        {
+          "id": "unbound-fill-unchanged",
+          "basis": "State=Hover / BG has the same colour at 0.1 with no binding: an unbound fill is still an error and its wording does not change.",
+          "path": "errors",
+          "where": { "node": "BG", "property": "fill" },
+          "expect": { "value": "#3366cc (10%)", "issue": "unbound fill" }
+        },
+        {
+          "id": "totals",
+          "basis": "Three paints checked (two bound + one unbound); one error, two warnings. The variants carry no text, radius or auto-layout, so nothing else is counted.",
+          "path": "summary",
+          "expect": { "errorCount": 1, "warningCount": 2, "totalChecked": 3 }
+        }
+      ]
+    },
+    "scripts/build/fixHardcodedToTokens.js": {
+      "args": { "componentSetIds": ["N:cs"] },
+      "checks": [
+        {
+          "id": "no-crash-and-no-blind-bind",
+          "basis": "The only unbound paint is State=Hover / BG: colour = color/blue-500 exactly, raw opacity 0.1. Auto-fix must not bind the opaque primitive at confidence 1.00 — that keeps the raw opacity the audit flags. One skip, nothing applied, and the run must not throw on the alias-with-opacity candidates it walks past.",
+          "path": "summary",
+          "expect": { "applied": 0, "skipped": 1, "totalProcessed": 1 }
+        },
+        {
+          "id": "alpha-token-named-on-skip",
+          "basis": "color/bg/ghost resolves to color/blue-500 at 10% and is SHAPE_FILL-scoped, so it is the token a human should bind on this rectangle.",
+          "path": "skipped",
+          "where": { "node": "BG" },
+          "expect": {
+            "value": "#3366cc (10%)",
+            "reason": "raw opacity on an unbound paint — bind the alias-with-opacity token manually",
+            "alphaTokenMatch": "color/bg/ghost"
+          }
+        }
+      ]
+    }
+  }
+}
