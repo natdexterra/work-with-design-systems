@@ -33,9 +33,11 @@ Spacing values *outside* the common scale are not flagged. Per Critical Rule #3,
 
 | Condition | Why warning, not error |
 |-----------|------------------------|
-| `fill.opacity < 1` on a fill that *is* bound | Raw opacity layered on a bound color is a deliberate choice in some systems, but usually means the system needs an alpha-aware token |
+| `fill.opacity < 1` on a fill that *is* bound | The remedy exists: a colour variable that aliases the colour and carries the opacity (`references/build/token-taxonomy.md`, "Alpha tokens"). Still a warning, because replacing the raw value changes a rendered paint and that is a human decision |
 | `stroke.opacity < 1` on a bound stroke | Same reasoning |
 | Visible `LAYER_BLUR` or `BACKGROUND_BLUR` effect with no `effects[i]` binding | Effect tokens are uncommon in many systems; flag for review rather than fail |
+
+The raw-opacity warning carries its remedy in the `issue` text. The module resolves every alpha token in the file (colour + percent, following a FLOAT alias on the opacity) and matches the paint's colour and opacity against the ones scoped for the place the raw value sits — `TEXT_FILL` for a text fill, `FRAME_FILL`/`SHAPE_FILL` for any other fill, `STROKE_COLOR` for a stroke. With a match the warning names the token; without one it says to add an alias-with-opacity token at that percent. The same colour at the same percent often exists twice (once for text, once for surfaces), which is why the scope decides which one is named.
 
 ## Output shape
 
@@ -64,7 +66,7 @@ Spacing values *outside* the common scale are not flagged. Per Critical Rule #3,
       property: "fill.opacity",
       value: "80%",
       path: "Button / .ButtonBase / BG",
-      issue: "raw opacity on bound fill"
+      issue: "raw opacity on bound fill — use the alias-with-opacity token \"color/bg/hover\" instead"
     }
   ],
   summary: { errorCount: 1, warningCount: 1, totalChecked: 25 }

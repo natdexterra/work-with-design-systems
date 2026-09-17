@@ -46,6 +46,16 @@ Load this reference when you hit an unusual situation not covered by the main wo
 
 **Remote MCP auth fails (OAuth "Invalid redirect uri" or similar):** the desktop Dev Mode MCP (`http://127.0.0.1:3845/mcp`, needs the file open as the active tab) still serves **reads** — `get_design_context`, `get_metadata`, `get_variable_defs`. Inspect mode can run on it; build mode (`use_figma`) needs the remote server. Say which path you used in the report.
 
+**A colour variable that reads as `null` — the alias-with-opacity shape:** a colour variable can alias another colour variable *and* carry an opacity without detaching, so `valuesByMode[modeId]` has three shapes, not two:
+
+```js
+{ r, g, b, a }                                      // literal
+{ type: "VARIABLE_ALIAS", id }                      // bare alias
+{ color: <literal | alias>, opacity: <0–100 | alias> }  // alpha token
+```
+
+A reader that tests `raw.type === "VARIABLE_ALIAS"` or `'r' in raw` misses the third and returns `null`, and a null resolution does not throw — the variable just disappears from whatever the reader feeds (a contrast pass, a token export, a duplicate check). The tokens written this way are the disabled, ghost, overlay and scrim ones, so the tokens most worth checking are the ones that vanish. Branch on `raw.color` **first**, resolve the colour, then the opacity (a percent, or an alias to a FLOAT scoped `COLOR_OPACITY`), and multiply it into the aliased colour's own alpha. The bundled Plugin API typings and the REST docs do not describe this shape yet; `setValueForMode` accepts it and `resolveForConsumer(node)` returns `a = opacity / 100`.
+
 **Renaming variables / collections during a taxonomy restructure:** safe for the file — bindings are by ID and codeSyntax keeps the CSS names — but anything generated *from* the old names (a `design-system.md`, `tokens.css`, a renderer's token table) is now stale. List those consumers in the report and regenerate or update them in the same session; and if the file is a published library, the user must Publish before consumer files see the new names and scopes.
 
 **Project override file exists but conflicts with Critical Rule:** Project overrides extend, not replace. If a project override would *weaken* a Critical Rule (e.g., "skip validation"), refuse and surface to user. If it *strengthens* (e.g., adds extra required field), apply.
