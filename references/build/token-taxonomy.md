@@ -41,6 +41,7 @@ No modes in Primitives — these are absolute values.
 | Border | `color/border/{purpose}` | `color/border/default`, `color/border/strong`, `color/border/focus` |
 | Interactive | `color/interactive/{purpose}` | `color/interactive/primary`, `color/interactive/primary-hover`, `color/interactive/danger` |
 | Status | `color/status/{type}` | `color/status/success`, `color/status/warning`, `color/status/error`, `color/status/info` |
+| Data state | `color/data/{state}` | `color/data/not-observed`, `color/data/provisional` (a fill for absent or provisional data; never a status hue) |
 | Spacing | `space/{size}` | `space/xs` (4), `space/sm` (8), `space/md` (16), `space/lg` (24), `space/xl` (32), `space/2xl` (48), `space/3xl` (64) |
 | Radius | `radius/{purpose}` | `radius/component` (6), `radius/card` (12), `radius/input` (8), `radius/button` (8), `radius/pill` (9999) |
 | Shadow | `shadow/{size}` | `shadow/sm`, `shadow/md`, `shadow/lg` |
@@ -139,6 +140,8 @@ Minimum hues for a v1 system:
 - Info: blue (can share with primary if primary is blue)
 
 **Status colors are mandatory for app UIs, and functional — not brand.** If the brand palette has no suitable hue (especially no red for `error`), add a dedicated status ramp rather than reusing a brand color; tune it to harmonize with the palette but keep `error` unmistakably red. Provide three steps per status — `{type}/50` (bg tint), `{type}/500` (solid), `{type}/700` (text) — and verify each text-on-bg pair at WCAG AA ≥ 4.5:1. Never force a brand color into a status role (a brown "error" reads as wrong and breaks the convention).
+
+**Absence is not a status.** A `not-observed` role is a graphic fill only: never text, never summed as zero, never one of the status hues. Provenance labels (measured, estimated, carried forward) carry no colour at all. Every status must also carry a word, so that removing colour removes nothing; a verdict carried by colour alone fails the colour-blind reader and the printed sheet.
 
 ## Responsive type via modes
 

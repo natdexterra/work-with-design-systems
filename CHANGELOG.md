@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A data-state group in the semantic tier of `token-taxonomy.md`.** Two products in a row needed a fill for a value that was never observed and one for a provisional value, and both reached for a status hue because the taxonomy offered nothing else. The Tier 2 table gains `color/data/{state}` (`not-observed`, `provisional`), and a paragraph under the status rule says what absence is not: a graphic fill only, never text, never summed as zero, never a status colour; provenance labels carry no colour at all; every status also carries a word, so removing colour removes nothing.
 
 ## 2.1.0 — 2026-09-17
 
