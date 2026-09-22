@@ -4,6 +4,14 @@
 
 Nothing yet.
 
+## 2.1.1 — 2026-09-22
+
+Patch release. Guidance only: the semantic tier gains a home for values that are absent or provisional, so they stop borrowing a status hue. No script change.
+
+### Added
+
+- **A data-state group in the semantic tier of `token-taxonomy.md`.** Two products in a row needed a fill for a value that was never observed and one for a provisional value, and both reached for a status hue because the taxonomy offered nothing else. The Tier 2 table gains `color/data/{state}` (`not-observed`, `provisional`), and a paragraph under the status rule says what absence is not: a graphic fill only, never text, never summed as zero, never a status colour; provenance labels carry no colour at all; every status also carries a word, so removing colour removes nothing.
+
 ## 2.1.0 — 2026-09-17
 
 Minor release. A Figma colour variable can now alias another colour variable **and** carry an opacity without detaching from the alias — the shape every semi-transparent token wants. Every reader in this repo tested two value shapes and returned `null` on the third, so the tokens written this way disappeared from the audits instead of failing them. All four scripts read it now, and the repo gains a fixed set that runs them in Node.
