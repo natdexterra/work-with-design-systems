@@ -55,7 +55,7 @@ These apply to BOTH modes — inspect and build.
    Why: `get_screenshot` is the heaviest call, and Figma MCP rate-limits its read tools per plan and seat — **Professional Full/Dev seat: 10 calls/min and 200/day**; Organization: 15/min, 200/day; Enterprise: 20/min, 600/day; Starter: 20/month; View/Collab seats: 6/month (Figma's `rate-limits-access` doc, 2026-08). Only `whoami`, `create_new_file`, `add_code_connect_map` are exempt. The **daily** cap is the one that bites: a per-component inspect pass with a screenshot each can spend a whole day's budget on one mid-size file. Matching depth to risk frees that budget for the structural changes that actually need visual verification. Run `whoami` when unsure which tier applies.
 3. **Bind visual properties to variables when a scale value exists.** Fills, strokes, padding, itemSpacing, corner radius. For component-specific dimensions that don't match any scale value (e.g., 3px internal padding on a toggle track, 1px divider offset), hardcoded values are acceptable — document these exceptions in the component description. **A tint of an existing colour is a token too:** a colour variable can alias another colour variable and carry its own opacity (`{ color: <alias>, opacity: <percent> }`), so a disabled, ghost, overlay or scrim value is an alias-with-opacity token — never a bound fill with a raw opacity typed on the paint, which no export and no audit can read. See `references/build/token-taxonomy.md`, "Alpha tokens".
 4. **lineHeight variables must store pixel values, not percentages.** Figma variables are unitless. When bound to lineHeight, the value is interpreted as pixels. If your DS defines line heights as percentages (e.g., 150%), convert before storing: fontSize × (percentage / 100). Text styles can store {unit: "PERCENT", value: 150} — variables cannot.
-5. **Set codeSyntax.WEB on every variable — one unique token name per variable.** Without it, agents using `get_design_context` get raw Figma variable names instead of code token names. Set during creation, not as a separate pass. Presence is not enough: a semantic token gets its **own** name (`--color-text-link`), never the name of the primitive it aliases (six roles sharing `--color-primary-500` cannot be told apart in a stylesheet), and never a **value** (`1.25rem`, `9999px`, `#fff`, `400` — Phase 6 would emit `--1rem: 1rem`). Spell it in the codebase's convention: a CSS custom property as `--name` or `var(--name)` (Figma's own examples use the `var()` form) is what Phase 6 `tokens.css` consumes; an SCSS `$token` or a bare `token-name` is valid when the project's documentation prescribes it, but Phase 6 cannot consume it. The validator reports values and duplicates as errors and non-CSS conventions as info.
+5. **Set codeSyntax.WEB on every variable — one unique token name per variable.** Without it, agents using `get_design_context` get raw Figma variable names instead of code token names. Set during creation, not as a separate pass. Presence is not enough: a semantic token gets its **own** name (`--color-text-link`), never the name of the primitive it aliases (six roles sharing `--color-primary-500` cannot be told apart in a stylesheet), and never a **value** (`1.25rem`, `9999px`, `#fff`, `400` — Phase 6 would emit `--1rem: 1rem`). Spell it in the codebase's convention: a CSS custom property as `--name` or `var(--name)` (Figma's own examples use the `var()` form) is what Phase 6 `tokens.css` consumes; an SCSS `$token` or a bare `token-name` is valid when the project's documentation prescribes it, but Phase 6 cannot consume it. The validator reports values and duplicates as errors and non-CSS conventions as info. The dash form (`--group-leaf` or `--group--leaf`) is one project convention, confirmed in Phase 1e and never mixed; two names that become one after dash collapse and lowercasing are an error too, because a tool that normalizes names keeps only one of them.
 6. **Set explicit variable scopes.** Never leave ALL_SCOPES. Background colors get FRAME_FILL + SHAPE_FILL. Text colors get TEXT_FILL. Spacing gets GAP + WIDTH_HEIGHT. Radius gets CORNER_RADIUS. Font size gets FONT_SIZE. **Empty `scopes` (`[]`) is the opposite failure and worse:** the variable is invisible in every property picker, so designers hand-paste hex into frames (seen in practice: 46 primitives, all `[]`, and hex pasted by hand). The validator reports both.
 7. **TEXT properties with the same name merge across variants.** If two variants both define `addComponentProperty("Label", "TEXT", ...)`, they become ONE shared property on the component set with one default value. For different defaults per variant: use different property names, leave text as direct content with instance text overrides, or accept the shared default.
 8. **TEXT component properties on every customizable text node.** Without them, label overrides ("Label" → "Submit") revert on component update. Every customizable text node needs `componentPropertyReferences = { characters: key }`.
@@ -187,7 +187,7 @@ Fast sanity check to build a state ledger and decide how to proceed. NOT a full 
 
 Run `scripts/build/validate-design-system.js` via `use_figma`. Then targeted checks:
 - Variable scopes (flag ALL_SCOPES **and empty** scopes)
-- codeSyntax quality — present on every variable, **unique**, and a CSS *name* (`--color-brand-primary`), not a value (`1.25rem`) and not the aliased primitive's name reused on a semantic role
+- codeSyntax quality — present on every variable, **unique** (also after dash collapse and lowercasing), and a CSS *name* (`--color-brand-primary`), not a value (`1.25rem`) and not the aliased primitive's name reused on a semantic role
 - Duplicate variables
 - Bindings sample via `get_metadata` on a few components, check `boundVariables` coverage
 - Generic layer names (if >20% of layers in components are auto-named like `Frame 47`, suggest Figma's AI rename in Actions panel as a first pass)
@@ -224,7 +224,7 @@ Present summary:
 - Component list (prioritized — core first)
 - Naming convention
 - Component numbering convention (`C{section}.{number} {Name}`)
-- CSS token naming for codeSyntax.WEB
+- CSS token naming for codeSyntax.WEB, including the dash form: single (`--color-bg-primary`) or double (`--color-bg--primary`), one form for the whole project
 
 **Do not proceed until user confirms.**
 
@@ -322,7 +322,7 @@ If user wants composition patterns documented, read `references/build/patterns-g
 Run `scripts/build/validate-design-system.js` for full file audit (variables and styles are file-level; the component-tree walk covers one page per call — pass `PAGE_ID` and fan out one call per component page, see `references/inspect/overview.md`):
 - All collections present
 - No ALL_SCOPES or empty-scope variables
-- Every variable has a unique, name-shaped codeSyntax.WEB
+- Every variable has a unique, name-shaped codeSyntax.WEB, still unique after dash collapse
 - No hardcoded fills in components
 - All components have Auto Layout
 - Light/Dark modes tested

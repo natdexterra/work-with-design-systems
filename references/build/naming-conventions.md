@@ -63,6 +63,10 @@ Figma variant properties must map predictably to code props. Follow this mapping
 
 Conversion rule: replace `/` with `-`, prepend `--`.
 
+That is the single-dash form. The double-dash form marks where the group ends: `--group--leaf` (`color/bg/primary` → `--color-bg--primary`). Both are valid CSS custom properties. The form is a project convention, confirmed in Phase 1e: one form for every variable in the project, never a mix.
+
+A tool downstream may not keep the difference. A canvas tool's token import or a preprocessor can collapse a run of dashes to one and lowercase the name, so two distinct names become one: `--color--text-primary` on a primitive and `--color-text--primary` on a semantic both read `--color-text-primary`. The validator reports such a pair as an error ("collide after dash collapse"). Resolve it by renaming one variable or its codeSyntax at the source.
+
 ## Layer naming inside components
 
 | Layer type | Convention | Example |
