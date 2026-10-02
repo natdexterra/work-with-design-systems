@@ -10,6 +10,7 @@
  *  - Variable collections (Primitives required; Semantic recommended)
  *  - Variable scopes (ALL_SCOPES violations, empty scopes)
  *  - codeSyntax.WEB coverage, uniqueness and name shape (not a value)
+ *  - codeSyntax.WEB names that collide after dash collapse and lowercasing
  *  - Duplicate primitive values (grouped by name domain — spacing, radius, type, color separately)
  *  - Mode parity (values present in all modes)
  *  - Semantic Light/Dark mode presence
@@ -294,6 +295,8 @@ async function runAudit() {
     return { tier: "other", bare: s };
   };
   const nonCssNames = [];
+  // Every name-shaped codeSyntax.WEB, kept for the collision check after the loop.
+  const namedCodeSyntax = [];
   // Duplicate detection is scoped by (mode, domain) pair. Variables from
   // different domains that happen to share a numeric value (e.g. spacing/16
   // and type/size/body, both = 16) are NOT considered duplicates.
@@ -321,6 +324,7 @@ async function runAudit() {
         if (tier === "other") nonCssNames.push(`${v.name} → ${webName}`);
         if (!codeSyntaxOwners.has(bare)) codeSyntaxOwners.set(bare, []);
         codeSyntaxOwners.get(bare).push(v.name);
+        namedCodeSyntax.push({ name: v.name, codeSyntax: webName, bare });
       }
     }
 
@@ -409,6 +413,42 @@ async function runAudit() {
           .join(", ")}${owners.length > 6 ? ", …" : ""}`
       );
     }
+  }
+
+  // Collisions after normalization. "--color--text-primary" and
+  // "--color-text--primary" are distinct CSS custom properties, so the exact
+  // check above is silent, but a tool that normalizes names on import (a canvas
+  // tool's token import, a preprocessor) may store both as
+  // "--color-text-primary" and keep only one. Normalize the way such a tool may:
+  // lowercase, keep a leading "--", collapse every other run of dashes to one.
+  // A group holding a single bare name is the exact duplicate reported above,
+  // so only groups with two or more distinct bare names are collisions.
+  const normalizeName = (bare) => {
+    const lower = bare.toLowerCase();
+    const lead = lower.startsWith("--") ? "--" : "";
+    return lead + lower.slice(lead.length).replace(/-{2,}/g, "-");
+  };
+  const normalizedGroups = new Map();
+  for (const entry of namedCodeSyntax) {
+    const key = normalizeName(entry.bare);
+    if (!normalizedGroups.has(key)) normalizedGroups.set(key, []);
+    normalizedGroups.get(key).push(entry);
+  }
+  const codeSyntaxCollisions = [];
+  for (const [normalized, members] of normalizedGroups.entries()) {
+    if (new Set(members.map((m) => m.bare)).size < 2) continue;
+    codeSyntaxCollisions.push({
+      normalized,
+      variables: members.map((m) => ({ name: m.name, codeSyntax: m.codeSyntax })),
+    });
+    addIssue(
+      "error",
+      "tokens",
+      `codeSyntax.WEB names collide after dash collapse to "${normalized}" (a tool that normalizes names on import keeps only one of them): ${members
+        .slice(0, 6)
+        .map((m) => `${m.name} → "${m.codeSyntax}"`)
+        .join(", ")}${members.length > 6 ? ", …" : ""}`
+    );
   }
 
   for (const [, names] of primitiveValueMap.entries()) {
@@ -745,6 +785,9 @@ async function runAudit() {
       warnings: issues.filter((i) => i.severity === "warning").length,
       info: issues.filter((i) => i.severity === "info").length,
     },
+    // Read this rather than `issues` for the collision count: the issue list
+    // is capped and a large file can push these entries past the cap.
+    codeSyntaxCollisions,
     contrast: {
       lightPairs: contrastReport.light.length,
       darkPairs: contrastReport.dark.length,

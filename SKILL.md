@@ -50,17 +50,17 @@ These apply to BOTH modes — inspect and build.
 1. **Work incrementally.** One component (or one variant set) per `use_figma` call. Validate after each step. This is the single most important practice for avoiding bugs.
 2. **Never build on unvalidated work — match validation depth to change type.**
    - **Structural change** (new variant, restructured auto-layout, new property, `swapComponent`): `get_metadata` + `get_screenshot` before next step. Visual properties may have shifted invisibly.
-   - **Binding / description / codeSyntax / scope / rename change**: verify INSIDE the same script via `node.boundVariables` / `node.description` / `variable.codeSyntax` / `variable.scopes` reads, return as part of the result. No external `get_screenshot` needed — Figma is deterministic on these.
+   - **Binding / description / codeSyntax / scope / rename change**: verify INSIDE the same script via `node.boundVariables` / `node.description` / `variable.description` / `variable.codeSyntax` / `variable.scopes` reads, return as part of the result. No external `get_screenshot` needed — Figma is deterministic on these.
    - **End of batch**: one `get_screenshot` of the parent CS for visual sanity.
    Why: `get_screenshot` is the heaviest call, and Figma MCP rate-limits its read tools per plan and seat — **Professional Full/Dev seat: 10 calls/min and 200/day**; Organization: 15/min, 200/day; Enterprise: 20/min, 600/day; Starter: 20/month; View/Collab seats: 6/month (Figma's `rate-limits-access` doc, 2026-08). Only `whoami`, `create_new_file`, `add_code_connect_map` are exempt. The **daily** cap is the one that bites: a per-component inspect pass with a screenshot each can spend a whole day's budget on one mid-size file. Matching depth to risk frees that budget for the structural changes that actually need visual verification. Run `whoami` when unsure which tier applies.
 3. **Bind visual properties to variables when a scale value exists.** Fills, strokes, padding, itemSpacing, corner radius. For component-specific dimensions that don't match any scale value (e.g., 3px internal padding on a toggle track, 1px divider offset), hardcoded values are acceptable — document these exceptions in the component description. **A tint of an existing colour is a token too:** a colour variable can alias another colour variable and carry its own opacity (`{ color: <alias>, opacity: <percent> }`), so a disabled, ghost, overlay or scrim value is an alias-with-opacity token — never a bound fill with a raw opacity typed on the paint, which no export and no audit can read. See `references/build/token-taxonomy.md`, "Alpha tokens".
 4. **lineHeight variables must store pixel values, not percentages.** Figma variables are unitless. When bound to lineHeight, the value is interpreted as pixels. If your DS defines line heights as percentages (e.g., 150%), convert before storing: fontSize × (percentage / 100). Text styles can store {unit: "PERCENT", value: 150} — variables cannot.
-5. **Set codeSyntax.WEB on every variable — one unique token name per variable.** Without it, agents using `get_design_context` get raw Figma variable names instead of code token names. Set during creation, not as a separate pass. Presence is not enough: a semantic token gets its **own** name (`--color-text-link`), never the name of the primitive it aliases (six roles sharing `--color-primary-500` cannot be told apart in a stylesheet), and never a **value** (`1.25rem`, `9999px`, `#fff`, `400` — Phase 6 would emit `--1rem: 1rem`). Spell it in the codebase's convention: a CSS custom property as `--name` or `var(--name)` (Figma's own examples use the `var()` form) is what Phase 6 `tokens.css` consumes; an SCSS `$token` or a bare `token-name` is valid when the project's documentation prescribes it, but Phase 6 cannot consume it. The validator reports values and duplicates as errors and non-CSS conventions as info.
+5. **Set codeSyntax.WEB on every variable — one unique token name per variable.** Without it, agents using `get_design_context` get raw Figma variable names instead of code token names. Set during creation, not as a separate pass. Presence is not enough: a semantic token gets its **own** name (`--color-text-link`), never the name of the primitive it aliases (six roles sharing `--color-primary-500` cannot be told apart in a stylesheet), and never a **value** (`1.25rem`, `9999px`, `#fff`, `400` — Phase 6 would emit `--1rem: 1rem`). Spell it in the codebase's convention: a CSS custom property as `--name` or `var(--name)` (Figma's own examples use the `var()` form) is what Phase 6 `tokens.css` consumes; an SCSS `$token` or a bare `token-name` is valid when the project's documentation prescribes it, but Phase 6 cannot consume it. The validator reports values and duplicates as errors and non-CSS conventions as info. The dash form (`--group-leaf` or `--group--leaf`) is one project convention, confirmed in Phase 1e and never mixed; two names that become one after dash collapse and lowercasing are an error too, because a tool that normalizes names keeps only one of them.
 6. **Set explicit variable scopes.** Never leave ALL_SCOPES. Background colors get FRAME_FILL + SHAPE_FILL. Text colors get TEXT_FILL. Spacing gets GAP + WIDTH_HEIGHT. Radius gets CORNER_RADIUS. Font size gets FONT_SIZE. **Empty `scopes` (`[]`) is the opposite failure and worse:** the variable is invisible in every property picker, so designers hand-paste hex into frames (seen in practice: 46 primitives, all `[]`, and hex pasted by hand). The validator reports both.
 7. **TEXT properties with the same name merge across variants.** If two variants both define `addComponentProperty("Label", "TEXT", ...)`, they become ONE shared property on the component set with one default value. For different defaults per variant: use different property names, leave text as direct content with instance text overrides, or accept the shared default.
 8. **TEXT component properties on every customizable text node.** Without them, label overrides ("Label" → "Submit") revert on component update. Every customizable text node needs `componentPropertyReferences = { characters: key }`.
 9. **Use slots for compound components.** Compound components (Card, Modal, Dialog, ListItem, ReviewCard) that contain variable inner content MUST use named slots instead of detach patterns or text-only props. Without slots, agents and users detach the component to edit inner content, which breaks maintenance and the agent's ability to reason about composition. Slots are available in Figma as of March 2026. See `references/build/slots-guide.md`.
-10. **Every public component MUST have a structured description.** Figma MCP reads component descriptions and passes them to agents as context. Missing descriptions force the agent to guess purpose, behavior, and composition. Use the template in `references/build/component-description-template.md`. **Use plain-text formatting (UPPERCASE section headers, no markdown bold or `##` — `get_design_context` escapes them) — see template's "MCP delivery format" section.** Private base components (prefixed with `.` or `_`) may use a one-line note.
+10. **Every public component MUST have a structured description.** Figma MCP reads component descriptions and passes them to agents as context. Missing descriptions force the agent to guess purpose, behavior, and composition. Use the template in `references/build/component-description-template.md`. **Use plain-text formatting (UPPERCASE section headers, no markdown bold or `##` — `get_design_context` escapes them) — see template's "MCP delivery format" section.** Private base components (prefixed with `.` or `_`) may use a one-line note. **A description is the spec, not a changelog:** no dates, people's names, decision history ("approved", "decided", "earlier look"), node ids, repo or file paths, scan notes or instance counts. That history belongs in the project's decision records and work logs. A note this skill asks for (a Rule #3 exception, a slot decision) is written as the current rule. A **variable** description follows `references/build/variable-description-template.md` (PURPOSE / USAGE / CONSTRAINT) under the same format rules and the same exclusion.
 11. **Never detach a component.** If you need to vary inner content, use: variant, boolean property, instance swap, or named slot. Detaching breaks the design-to-code bridge — the detached frame becomes structurally invisible to agents and to inspect mode.
 
 ---
@@ -187,7 +187,7 @@ Fast sanity check to build a state ledger and decide how to proceed. NOT a full 
 
 Run `scripts/build/validate-design-system.js` via `use_figma`. Then targeted checks:
 - Variable scopes (flag ALL_SCOPES **and empty** scopes)
-- codeSyntax quality — present on every variable, **unique**, and a CSS *name* (`--color-brand-primary`), not a value (`1.25rem`) and not the aliased primitive's name reused on a semantic role
+- codeSyntax quality — present on every variable, **unique** (also after dash collapse and lowercasing), and a CSS *name* (`--color-brand-primary`), not a value (`1.25rem`) and not the aliased primitive's name reused on a semantic role
 - Duplicate variables
 - Bindings sample via `get_metadata` on a few components, check `boundVariables` coverage
 - Generic layer names (if >20% of layers in components are auto-named like `Frame 47`, suggest Figma's AI rename in Actions panel as a first pass)
@@ -220,11 +220,12 @@ If no override file exists, proceed normally — do not block on absence.
 
 Present summary:
 - Token categories (colors, spacing, radius, typography, shadows)
-- Number of modes (Light/Dark, brands)
+- Number of modes (Light/Dark, brands, Desktop/Mobile, platform modes such as web and presentation) and each collection's default mode
 - Component list (prioritized — core first)
 - Naming convention
 - Component numbering convention (`C{section}.{number} {Name}`)
-- CSS token naming for codeSyntax.WEB
+- CSS token naming for codeSyntax.WEB, including the dash form: single (`--color-bg-primary`) or double (`--color-bg--primary`), one form for the whole project
+- If code export is in scope: the CSS strategy for every mode that is not a collection's default. Theme modes: `[data-theme]`, `prefers-color-scheme`, both, or one mode only. Platform modes: an attribute, a file per mode, or one mode exported and the other out of scope (`references/build/code-export.md`)
 
 **Do not proceed until user confirms.**
 
@@ -241,6 +242,8 @@ Read `references/build/token-taxonomy.md` before starting.
 **Alternative:** flat domain-based (Colors, Spacing, Radius, Typography). Valid for single-brand or rebuilds where this structure exists.
 
 Match what's in the file or codebase. The requirement is not depth — it's that every variable has explicit scopes and codeSyntax.WEB.
+
+When a variable gets a description, write it from `references/build/variable-description-template.md` and read `variable.description` back in the same script (Critical Rule #2).
 
 #### 2b. Text Styles and Effect Styles
 
@@ -320,7 +323,7 @@ If user wants composition patterns documented, read `references/build/patterns-g
 Run `scripts/build/validate-design-system.js` for full file audit (variables and styles are file-level; the component-tree walk covers one page per call — pass `PAGE_ID` and fan out one call per component page, see `references/inspect/overview.md`):
 - All collections present
 - No ALL_SCOPES or empty-scope variables
-- Every variable has a unique, name-shaped codeSyntax.WEB
+- Every variable has a unique, name-shaped codeSyntax.WEB, still unique after dash collapse
 - No hardcoded fills in components
 - All components have Auto Layout
 - Light/Dark modes tested
@@ -388,13 +391,15 @@ Ask the user how Light/Dark modes should resolve in CSS:
 
 Multi-brand modes: use the same attribute pattern with brand-specific values (`[data-brand="acme"]`).
 
+Platform modes (a collection whose modes are output platforms, not themes): use the strategy chosen in Phase 1e. See `code-export.md`, "Collections with platform modes". Every mode that is not its collection's default needs a target; the formatter refuses a mode without one.
+
 Read `references/build/code-export.md` for full structure with examples for each strategy.
 
 #### 6d. Generate files
 
 For each file, use Claude's file write tools (NOT `use_figma`). Generate:
 
-1. **`tokens.css`** — call `scripts/build/exportTokensToCSS.js` via `use_figma` to read all variables and return structured token data. Then format into the chosen CSS strategy (from 6c) and write to disk via file write tools.
+1. **`tokens.css`**: call `scripts/build/exportTokensToCSS.js` via `use_figma` and save the JSON it returns to a file. Write the strategy from 6c as a targets map (`references/build/code-export.md`, "Formatting tokens.css"), then run `node scripts/export/formatTokensCSS.js <export.json> <targets.json> > tokens.css` from the skill folder. The CSS comes from that formatter and is never written or patched by the model from prose: when a value is wrong, fix the variable, its codeSyntax or the targets map, and run it again. When the formatter refuses, its errors name what to fix.
 
 2. **AI rules file** — read template from `references/build/code-export.md` "AI rules templates" section. Fill in component list (from current build), token reference list, audit script reference. Write to scoped path determined in 6b.
 
@@ -402,7 +407,7 @@ For each file, use Claude's file write tools (NOT `use_figma`). Generate:
 
 4. **(Optional) `specs/patterns/*.md`** — only if user explicitly asks ("also generate spec files for patterns"). One markdown file per pattern documented in Phase 4d. Use template from `references/build/code-export.md`.
 
-If running in Claude.ai web (no file write tools), output each file's contents in fenced code blocks with clear "save as: {path}" headers.
+If running in Claude.ai web (no file write tools), output each file's contents in fenced code blocks with clear "save as: {path}" headers. Where Node cannot run either, `tokens.css` is the exception: output the exporter JSON, the targets map and the formatter command, never a hand-formatted `tokens.css`.
 
 #### 6e. Verify
 
@@ -420,6 +425,7 @@ Report file paths to user. Phase 6 complete.
 Build mode and Phase 6 sync are Figma-only: variables ↔ code. Some teams draw screens in a second canvas tool that keeps its own token store. In that case the source of truth stays the tokens file (or the design-system document that holds the same values), and the tool's tokens are a **projection** of it:
 
 - Create the tool's tokens from the file through its token API, never by hand from memory.
+- **Names must survive the import.** A second tool may normalize names on import: collapse a double dash, lowercase, strip characters it does not allow. Before the push, run the collision check over that normalization. The validator's dash-collapse check (`codeSyntaxCollisions`) covers collapse and lowercase; for any other rule the tool applies, apply it to every name and look for two that become one. After the push, read the tool's tokens back and diff the names 1:1 against the file, not only the values. A name that changed on import is a drift: resolve it by renaming at the source (the variable or its codeSyntax), never by a hand fix in the tool. With a tool that collapses dashes, a double-dash form cannot survive the import; weigh that when the dash form is chosen in Phase 1e.
 - Before any hand-off (exports into the repo, a task for a builder), read the tool's token list back and diff it against the file. Colors, spacing and radius must match 1:1. Line-height may drift where the tool approximates it in px; record the drift, don't fix it.
 - A token that exists in the tool and not in the file is an invented rule. Report it for a decision, then add it to the file first and to the tool second.
 - Inspect mode's semantic-role coverage (the mandatory status group, AA pairs, code-ready names) applies to a design-system document exactly as it applies to a Figma library. Run it on the file.

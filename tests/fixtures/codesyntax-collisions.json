@@ -1,0 +1,104 @@
+{
+  "_readme": "Fixture for codeSyntax.WEB names that differ only by a double versus a single dash. Every name uses the --group--leaf form: color/ink-900 is a primitive carrying a role name, --color--text-primary (group color, leaf text-primary), and the semantic color/text/primary carries --color-text--primary (group color-text, leaf primary). Both are valid CSS custom properties and distinct strings; after dash collapse both read --color-text-primary, which is what a tool that normalizes names on import would store. color/bg/surface and color/bg/card share the bare name --color-bg--surface (the second spelled var(--color-bg--surface)): the existing duplicate error, which the collision check must not report a second time. Scopes, modes, pages and the text-style binding are complete and every text-on-bg pair passes contrast, so the only findings are the two under test.",
+  "currentPageId": "P:foundations",
+  "pages": [
+    { "id": "P:cover", "name": "Cover", "children": [] },
+    { "id": "P:foundations", "name": "Foundations", "children": [] },
+    { "id": "P:components", "name": "Components", "children": [] }
+  ],
+  "textStyles": [
+    {
+      "name": "Body/Default",
+      "boundVariables": { "fontSize": { "type": "VARIABLE_ALIAS", "id": "V:white" } }
+    }
+  ],
+  "effectStyles": [],
+  "paintStyles": [],
+  "collections": [
+    {
+      "id": "C:primitives",
+      "name": "Primitives",
+      "defaultModeId": "m:value",
+      "modes": [{ "modeId": "m:value", "name": "Value" }],
+      "variableIds": ["V:ink900", "V:white"]
+    },
+    {
+      "id": "C:semantic",
+      "name": "Semantic",
+      "defaultModeId": "m:light",
+      "modes": [
+        { "modeId": "m:light", "name": "Light" },
+        { "modeId": "m:dark", "name": "Dark" }
+      ],
+      "variableIds": ["V:textPrimary", "V:bgPage", "V:bgSurface", "V:bgCard"]
+    }
+  ],
+  "variables": [
+    {
+      "id": "V:ink900",
+      "name": "color/ink-900",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color--text-primary" },
+      "valuesByMode": { "m:value": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }
+    },
+    {
+      "id": "V:white",
+      "name": "color/white",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color--white" },
+      "valuesByMode": { "m:value": { "r": 1, "g": 1, "b": 1, "a": 1 } }
+    },
+    {
+      "id": "V:textPrimary",
+      "name": "color/text/primary",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-text--primary" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:ink900" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:white" }
+      }
+    },
+    {
+      "id": "V:bgPage",
+      "name": "color/bg/page",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "codeSyntax": { "WEB": "--color-bg--page" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:white" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:ink900" }
+      }
+    },
+    {
+      "id": "V:bgSurface",
+      "name": "color/bg/surface",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "codeSyntax": { "WEB": "--color-bg--surface" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:white" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:ink900" }
+      }
+    },
+    {
+      "id": "V:bgCard",
+      "name": "color/bg/card",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "codeSyntax": { "WEB": "var(--color-bg--surface)" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:white" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:ink900" }
+      }
+    }
+  ]
+}

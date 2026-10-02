@@ -75,6 +75,29 @@ Components reference layer 2 aliases only:
 
 Never `var(--ds-*)` directly. Never hardcoded values.
 
+## Formatting tokens.css
+
+`tokens.css` is produced by `scripts/export/formatTokensCSS.js`, a deterministic formatter over the JSON that `exportTokensToCSS.js` returns. It runs in Node, has no dependencies, and gives the same bytes for the same input. The model never writes or patches the declarations by hand: a value typed from prose drifts from the file without a trace, and the next export overwrites it. When the output is wrong, fix the variable, its codeSyntax or the targets map, and run the formatter again.
+
+1. Run `exportTokensToCSS.js` via `use_figma` and save the JSON it returns as a file (`tokens.export.json`).
+2. Write the mode strategy as a targets map (`tokens.targets.json`), keyed by collection name and then mode name, exactly as Figma spells them:
+
+   ```json
+   {
+     "Semantic": { "Dark": "[data-theme=\"dark\"]" },
+     "Typography": { "Presentation": "[data-mode=\"presentation\"]" }
+   }
+   ```
+
+   A target is a selector, `{ "media": "...", "selector": "..." }` for a media query, an array of both, or `null` to leave the mode out of this file. A collection's default mode goes to `:root` unless listed. Every other mode must be listed: the formatter refuses a mode with no target rather than guess a selector.
+3. From the skill folder, run `node scripts/export/formatTokensCSS.js tokens.export.json tokens.targets.json > tokens.css`. On exit 1 it prints what to fix and no CSS, so the redirect leaves `tokens.css` empty, never half-written. Skipped variables (a BOOLEAN, a mode with no value) are listed on stderr.
+
+**What it emits.** One layer: raw values and `var()` aliases (layer 2 above, with no upstream layer). A color is its hex, or `rgba()` when alpha < 1. An alias is `var()` of its target's codeSyntax.WEB. An alpha token is the exporter's `color-mix()` value. A FLOAT takes `px` when scoped to a dimension (gap, size, radius, stroke, effect, font size, line height, letter or paragraph spacing), `%` when scoped to an opacity (Figma stores both opacity kinds as a percent), and no unit otherwise (font weight). A FONT_FAMILY string is quoted. Numbers are rounded to four decimals, because a FLOAT can read back with 32-bit noise (`22.4` as `22.399999618530273`).
+
+**What it refuses.** A codeSyntax.WEB that is not a CSS custom property (`--name` or `var(--name)`); one CSS name on two variables; an alias whose target is missing, or shares its name with another variable (the export carries the target's name, not its id); an alpha token whose opacity did not resolve; a non-default mode with no target; a target that names a collection or mode the export does not have.
+
+**Not covered.** The layer-1 upstream mapping with fallbacks, and `clamp()` for Desktop / Mobile type, which needs viewport bounds the file does not hold. A responsive pair can export through a media-query target for the Mobile mode; fluid `clamp()` means extending the formatter, with a fixture, not writing it by hand.
+
 ## Light/Dark modes — three strategies
 
 Ask the user which strategy fits their project before generating tokens.css.
@@ -157,6 +180,28 @@ Same attribute pattern with brand-specific values:
 ```
 
 If both modes and brands are needed, combine: `[data-theme="dark"][data-brand="acme"] { ... }`.
+
+### In the targets map
+
+| Strategy | Target for the Dark mode |
+|----------|--------------------------|
+| 1. data-theme attribute | `"[data-theme=\"dark\"]"` |
+| 2. prefers-color-scheme | `{ "media": "(prefers-color-scheme: dark)", "selector": ":root" }` |
+| 3. Both | `[{ "media": "(prefers-color-scheme: dark)", "selector": ":root:not([data-theme=\"light\"])" }, "[data-theme=\"dark\"]"]` |
+| Single mode only | `null` |
+| Multi-brand | one selector per brand mode, `"[data-brand=\"acme\"]"`; a mode that is theme and brand at once takes the compound selector |
+
+## Collections with platform modes
+
+A collection can have more than one mode that is not a theme: platform modes, such as a web mode and a presentation mode of one typography collection, with the same names and a value per platform. `[data-theme]` does not describe them. Choose one strategy per mode in Phase 1e and write it into the targets map. The input is the exporter's `valuesByMode`, keyed by mode name; the targets use the same names.
+
+| Strategy | Targets for Typography with Web (default) and Presentation | Use when |
+|----------|-------------------------------------------------------------|----------|
+| An attribute | `{ "Typography": { "Presentation": "[data-mode=\"presentation\"]" } }` | One stylesheet serves both outputs and the root or a container carries the attribute |
+| A file per mode | `{ "Typography": { "Web": ":root", "Presentation": null } }` for `tokens.web.css`, then `{ "Typography": { "Web": null, "Presentation": ":root" } }` for `tokens.presentation.css` | Each output loads its own stylesheet; each file is complete on its own |
+| One mode exported, the other out of scope | `{ "Typography": { "Presentation": null } }` | The other platform does not read CSS. State in the AI rules file that this mode's values are not in `tokens.css` |
+
+With an attribute, the default mode sits in `:root`, so a page without the attribute resolves the way a Figma node outside an explicit-mode frame does: to the collection's default.
 
 ## Audit script template
 
@@ -443,11 +488,11 @@ Phase 6 sequence:
 
 1. **6a Format detection** — check `.claude/`, `.cursor/`, `AGENTS.md` in project root
 2. **6b Output paths** — resolve scoped paths, ask if conflicts
-3. **6c Mode strategy** — ask user about Light/Dark approach
+3. **6c Mode strategy** — ask user about Light/Dark approach; platform modes take the strategy chosen in Phase 1e
 4. **6d Generate files**:
-   - Run `exportTokensToCSS.js` via `use_figma`
-   - Format JSON output into chosen tokens.css strategy
-   - Write tokens.css
+   - Run `exportTokensToCSS.js` via `use_figma` and save the JSON
+   - Write the targets map for the chosen strategies
+   - Run `formatTokensCSS.js` to write tokens.css (never formatted by hand)
    - Fill AI rules template, write to scoped path
    - Fill TOKENS in audit script template, write
    - (Optional) Generate specs/patterns/ files

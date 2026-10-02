@@ -2,7 +2,25 @@
 
 ## [Unreleased]
 
-Nothing yet.
+### 2026-10-02
+
+Descriptions, modes, and names that a second tool rewrites; one validator check; a formatter that writes `tokens.css`. `npm test`: 48 checks over three fixtures. The validator ran read-only on a live design-system file before and after the change, on the same page: the same 22 findings (0 errors, 21 warnings, 1 info) both times, and 0 collisions.
+
+#### Added
+
+- **Variable description template** (`references/build/variable-description-template.md`): PURPOSE, USAGE and CONSTRAINT in UPPERCASE plain text, under the component template's MCP format rules. A variable description had no template, so whatever an agent wrote went in, history included. Critical Rule #10 and Phase 2a point to it, and Rule #2's in-script read-back names `variable.description`.
+- **Collision check after dash collapse** in `validate-design-system.js`. `--color--text-primary` and `--color-text--primary` are different CSS custom properties, so the exact duplicate check passes them, but a tool that collapses dashes or lowercases names on import keeps one token for both. Names that become equal after lowercasing and collapsing every run of dashes (a leading `--` kept) are an error naming each variable, and the groups come back as `codeSyntaxCollisions`, outside the capped issue list. The css / other / value tiers and the exact duplicate error are unchanged. New fixture `codesyntax-collisions`, baseline red before the check existed.
+- **`scripts/export/formatTokensCSS.js`**: `tokens.css` from the exporter's JSON, in Node, with no dependencies. The mode strategy is a targets map (per collection and mode: a selector, a media query, both, or null). A default mode goes to `:root`; every other mode must be named or the formatter refuses, as it does on a non-CSS codeSyntax, one CSS name on two variables, a missing or ambiguous alias target, and an alpha token whose opacity did not resolve. `tests/run.js` can now feed one key entry's result into a Node module, so the formatter is tested on the exporter's real output. New fixture `platform-modes`, with a hand-composed expected `tokens.css` and two refusals.
+- **Platform modes** in `token-taxonomy.md` and the `naming-conventions.md` mode table: one collection, the same names, a value per output platform (a web mode and a presentation mode of one typography collection), beside theme and responsive modes. A consumer outside an explicit-mode frame reads the collection's default mode.
+- **Mode-divergent variables on shared styles** in `edge-cases.md`. Bound to a shared text style, such a variable changes every consumer outside an explicit-mode frame in one write. Audit each consumer's resolved mode read-only first (`getStyleConsumersAsync`, `resolvedVariableModes`), and treat styles bound this way as a frozen zone for scripts unless the owner names the step.
+- **"Collections with platform modes"** in `code-export.md`: an attribute, a file per mode, or one mode exported and the other out of scope, chosen in Phase 1e. The three Light/Dark strategies are given as targets too.
+
+#### Changed
+
+- **A description is the spec, not a changelog.** The component template, Critical Rule #10 and inspect Module 6 say a description never carries dates, people's names, decision history, node ids, repo or file paths, scan notes or instance counts; that history belongs in the project's decision records and work logs. Notes the skill asks for (a Rule #3 exception, a slot decision) stay, written as the current rule. Module 6 flags history in an existing description and lists where each cut fragment belongs.
+- **One codeSyntax dash form per project.** `naming-conventions.md`: the single-dash and the double-dash form are both valid CSS; the form is confirmed in Phase 1e and never mixed. Rule #5, Phase 1c and the Phase 5 checklist add uniqueness after dash collapse.
+- **Phase 6 never writes `tokens.css` from prose.** 6d saves the exporter JSON, writes the targets map and runs the formatter; a wrong value is fixed in the variable, its codeSyntax or the targets map. Where Node cannot run, the output is the JSON, the targets map and the command. Phase 1e asks for the CSS strategy of every non-default mode when export is in scope.
+- **Other design surfaces: names must survive the import.** Before pushing tokens into a second tool, run the collision check over that tool's normalization; after the push, read the names back and diff them 1:1 against the file. A name the import changed is a drift, fixed by renaming at the source, never by hand in the tool.
 
 ## 2.1.1 — 2026-09-22
 

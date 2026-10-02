@@ -146,3 +146,11 @@ Minimum hues for a v1 system:
 ## Responsive type via modes
 
 Font-size and line-height are the exception to "no modes in Primitives." For responsive UIs, put the type scale in a collection with two modes — `Desktop` (default) and `Mobile` — and give every `font-size/*` and `line-height/*` token a value per mode. The two mode values are the `clamp()` endpoints on code export (Mobile = min, Desktop = max). Line-height values are pixels (variables are unitless → interpreted as px; never percent — Critical Rule #4). Preview mobile by setting the frame's mode via `setExplicitVariableModeForCollection(typographyCollection, mobileModeId)` while reusing the same text styles.
+
+## Platform modes
+
+A third mode pattern beside theme modes (Light / Dark) and responsive modes (Desktop / Mobile): one collection, the same variable names, a value per output platform. The common case is a typography collection with a web mode and a presentation mode, where both platforms share one set of text styles and differ in a few values (the font family, a size or two).
+
+- **The default mode is what every consumer resolves to unless a frame says otherwise.** A node reads the mode set explicitly on itself or its nearest ancestor (`setExplicitVariableModeForCollection`); with none set, it reads the collection's default mode. A frame drawn for a non-default mode sets that mode explicitly.
+- **A variable is mode-divergent when its values differ between modes.** Bound to a shared style (a text style, an effect style), it changes every consumer of that style that sits outside an explicit-mode frame. Audit before binding: see `references/edge-cases.md`.
+- **Code export needs a strategy per mode.** A platform mode is not a theme, so `[data-theme]` does not describe it. Choose in Phase 1e: an attribute, one file per mode, or one mode exported and the other declared out of scope. See `code-export.md`, "Collections with platform modes".

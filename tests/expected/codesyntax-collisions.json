@@ -1,0 +1,56 @@
+{
+  "_readme": "Answer key for tests/fixtures/codesyntax-collisions.json. Written from the fixture: every `basis` names the fixture values the expectation comes from. The normalization under test is the one a downstream tool may apply on import: lowercase, keep a leading `--`, collapse every other run of dashes to one.",
+  "scripts": {
+    "scripts/build/validate-design-system.js": {
+      "args": {},
+      "checks": [
+        {
+          "id": "summary",
+          "basis": "Two errors: the exact duplicate (color/bg/surface and color/bg/card on the bare name --color-bg--surface) and the collision (--color--text-primary and --color-text--primary). Scopes, codeSyntax presence, modes, pages and the text-style binding are complete, and every pair passes contrast (ink-900 on white is 17.5:1 in both modes), so no warning and no info.",
+          "path": "summary",
+          "expect": { "errors": 2, "warnings": 0, "info": 0 }
+        },
+        {
+          "id": "exact-duplicate-unchanged",
+          "basis": "The existing duplicate error on the bare name keeps its wording: var(--color-bg--surface) and --color-bg--surface are one name.",
+          "path": "issues",
+          "count": {
+            "message": "codeSyntax.WEB \"--color-bg--surface\" is shared by 2 variables: color/bg/surface, color/bg/card"
+          },
+          "expect": 1
+        },
+        {
+          "id": "collision-error",
+          "basis": "color/ink-900 = --color--text-primary and color/text/primary = --color-text--primary are different strings, so the exact check is silent; both collapse to --color-text-primary. One error naming both variables and both stored names.",
+          "path": "issues",
+          "count": {
+            "severity": "error",
+            "message": "codeSyntax.WEB names collide after dash collapse to \"--color-text-primary\" (a tool that normalizes names on import keeps only one of them): color/ink-900 → \"--color--text-primary\", color/text/primary → \"--color-text--primary\""
+          },
+          "expect": 1
+        },
+        {
+          "id": "collision-groups",
+          "basis": "Exactly one group, in variable order. The surface/card pair is one bare name, so it is the duplicate error's case and never a collision group.",
+          "path": "codeSyntaxCollisions",
+          "expect": [
+            {
+              "normalized": "--color-text-primary",
+              "variables": [
+                { "name": "color/ink-900", "codeSyntax": "--color--text-primary" },
+                { "name": "color/text/primary", "codeSyntax": "--color-text--primary" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "clean-names-silent",
+          "basis": "--color--white, --color-bg--page and --color-bg--surface collapse to names no other variable reaches, so none of them is in a group.",
+          "path": "codeSyntaxCollisions",
+          "count": { "normalized": "--color-bg-page" },
+          "expect": 0
+        }
+      ]
+    }
+  }
+}
