@@ -220,7 +220,7 @@ If no override file exists, proceed normally — do not block on absence.
 
 Present summary:
 - Token categories (colors, spacing, radius, typography, shadows)
-- Number of modes (Light/Dark, brands)
+- Number of modes (Light/Dark, brands, Desktop/Mobile, platform modes such as web and presentation) and each collection's default mode
 - Component list (prioritized — core first)
 - Naming convention
 - Component numbering convention (`C{section}.{number} {Name}`)

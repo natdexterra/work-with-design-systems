@@ -105,6 +105,12 @@ Examples: `Acme Design System v1.0`, `SaaS Kit DS v2.1`
 | High contrast | `High Contrast` | `@media (prefers-contrast: more)` |
 | Brand A | `Brand A` | `[data-brand="a"]` |
 | Brand B | `Brand B` | `[data-brand="b"]` |
+| Responsive, default | `Desktop` | `:root` (the `clamp()` max) |
+| Responsive | `Mobile` | the `clamp()` min |
+| Platform, default | `Web` | `:root` |
+| Platform | `Presentation` | chosen in Phase 1e: `[data-mode="presentation"]`, a file of its own, or out of scope |
+
+Platform modes (one collection, the same names, a value per output platform) are a third pattern beside theme and responsive modes. In every pattern, the collection's default mode is what a consumer outside an explicit-mode frame resolves to.
 
 ## Slot naming
 
