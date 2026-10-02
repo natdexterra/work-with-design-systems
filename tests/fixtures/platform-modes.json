@@ -1,5 +1,5 @@
 {
-  "_readme": "Fixture for the Phase 6 pipeline: exportTokensToCSS.js runs through the mock, formatTokensCSS.js formats its output. Three collections, one per mode pattern the formatter has to place: Primitives (one mode), Typography with two platform modes (Web, the default, and Presentation: same names, a value each), and Semantic with two theme modes (Light, the default, and Dark). The values cover each output rule: a colour literal, a bare alias (one spelled var(--name)), a px FLOAT, a unitless FONT_WEIGHT FLOAT, a quoted FONT_FAMILY string, a FLOAT stored as the 32-bit reading of 22.4, and a BOOLEAN with no CSS value.",
+  "_readme": "Fixture for the Phase 6 pipeline: exportTokensToCSS.js runs through the mock, formatTokensCSS.js formats its output. Three collections, one per mode pattern the formatter has to place: Primitives (one mode), Typography with two platform modes (Web, the default, and Presentation: same names, a value each), and Semantic with two theme modes (Light, the default, and Dark). The values cover each output rule: a color literal, a bare alias (one spelled var(--name)), a px FLOAT, a unitless FONT_WEIGHT FLOAT, a quoted FONT_FAMILY string, a FLOAT stored as the 32-bit reading of 22.4, and a BOOLEAN with no CSS value.",
   "currentPageId": "P:foundations",
   "pages": [
     {

@@ -14,7 +14,7 @@
  * Returns   { ok, errors, css, declarations: [{ target, name, value }], skipped }.
  *           The CLI prints css and exits 0, or prints the errors and exits 1.
  *
- * Values: a colour is its hex (rgba when a < 1), an alpha token the exporter's
+ * Values: a color is its hex (rgba when a < 1), an alpha token the exporter's
  * `css`, an alias var() of its target's codeSyntax.WEB. A FLOAT takes px when
  * scoped to a dimension, % when scoped to an opacity (Figma stores both
  * opacities as a percent), no unit otherwise. A FONT_FAMILY string is quoted.
