@@ -84,6 +84,7 @@ work-with-design-systems/
 │       ├── framework-mappings.md
 │       ├── slots-guide.md
 │       ├── component-description-template.md
+│       ├── variable-description-template.md
 │       ├── patterns-guide.md             # Composition patterns in Figma
 │       └── code-export.md                # Phase 6 — tokens.css, audit, AI rules
 │
