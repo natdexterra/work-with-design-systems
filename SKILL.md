@@ -399,7 +399,7 @@ Read `references/build/code-export.md` for full structure with examples for each
 
 For each file, use Claude's file write tools (NOT `use_figma`). Generate:
 
-1. **`tokens.css`**: call `scripts/build/exportTokensToCSS.js` via `use_figma` and save the JSON it returns to a file. Write the strategy from 6c as a targets map (`references/build/code-export.md`, "Formatting tokens.css"), then run `node scripts/export/formatTokensCSS.js <export.json> <targets.json> > tokens.css` from the skill folder. The CSS comes from that formatter and is never written or patched by the model from prose: when a value is wrong, fix the variable, its codeSyntax or the targets map, and run it again. When the formatter refuses, its errors name what to fix.
+1. **`tokens.css`**: call `scripts/build/exportTokensToCSS.js` via `use_figma` and save the JSON it returns to a file. Write the strategy from 6c as a targets map (`references/build/code-export.md`, "Formatting tokens.css"), then, from the project root, run `node <skill folder>/scripts/export/formatTokensCSS.js <export.json> <targets.json> > <path>/tokens.css`. The CSS comes from that formatter and is never written or patched by the model from prose: when a value is wrong, fix the variable, its codeSyntax or the targets map, and run it again. When the formatter refuses, its errors name what to fix.
 
 2. **AI rules file** — read template from `references/build/code-export.md` "AI rules templates" section. Fill in component list (from current build), token reference list, audit script reference. Write to scoped path determined in 6b.
 

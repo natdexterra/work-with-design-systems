@@ -13,6 +13,8 @@
  *           so no mode is exported under a guessed selector.
  * Returns   { ok, errors, css, declarations: [{ target, name, value }], skipped }.
  *           The CLI prints css and exits 0, or prints the errors and exits 1.
+ *           Either way its first stderr line is the variable and collection
+ *           count, to compare with the validator's stats.
  *
  * Values: a color is its hex (rgba when a < 1), an alpha token the exporter's
  * `css`, an alias var() of its target's codeSyntax.WEB. A FLOAT takes px when
@@ -144,7 +146,11 @@ if (require.main === module) {
   const [exportPath, targetsPath] = process.argv.slice(2);
   if (!exportPath) { console.error("usage: node formatTokensCSS.js <export.json> [<targets.json>]"); process.exit(2); }
   const targets = targetsPath ? JSON.parse(fs.readFileSync(targetsPath, "utf8")) : {};
-  const out = formatTokensCSS(fs.readFileSync(exportPath, "utf8"), targets);
+  let exported = fs.readFileSync(exportPath, "utf8");
+  while (typeof exported === "string") exported = JSON.parse(exported);
+  const variableCount = exported.reduce((sum, c) => sum + c.variables.length, 0);
+  console.error(`formatTokensCSS: ${variableCount} variables, ${exported.length} collections`);
+  const out = formatTokensCSS(exported, targets);
   if (!out.ok) {
     for (const e of out.errors) console.error(e);
     process.exit(1);
