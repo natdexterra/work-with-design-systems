@@ -1,0 +1,94 @@
+{
+  "_readme": "Fixture for the formatter's unit rule. One collection, four FLOATs, one per scope case the rule has to tell apart: GAP + WIDTH_HEIGHT (a dimension, px), FONT_WEIGHT (a bare number), ALL_SCOPES (the Figma default) and [] (scoped to nothing). The last two carry no unit, so the formatter has to refuse them rather than print a unitless number that any length property reading it treats as invalid.",
+  "currentPageId": "P:foundations",
+  "pages": [
+    {
+      "id": "P:foundations",
+      "name": "Foundations",
+      "children": []
+    }
+  ],
+  "textStyles": [],
+  "effectStyles": [],
+  "paintStyles": [],
+  "collections": [
+    {
+      "id": "C:primitives",
+      "name": "Primitives",
+      "defaultModeId": "m:value",
+      "modes": [
+        {
+          "modeId": "m:value",
+          "name": "Value"
+        }
+      ],
+      "variableIds": [
+        "V:space16",
+        "V:bold",
+        "V:allScopes",
+        "V:noScopes"
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "id": "V:space16",
+      "name": "space/16",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:primitives",
+      "scopes": [
+        "GAP",
+        "WIDTH_HEIGHT"
+      ],
+      "codeSyntax": {
+        "WEB": "--space--16"
+      },
+      "valuesByMode": {
+        "m:value": 16
+      }
+    },
+    {
+      "id": "V:bold",
+      "name": "font-weight/bold",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:primitives",
+      "scopes": [
+        "FONT_WEIGHT"
+      ],
+      "codeSyntax": {
+        "WEB": "--font-weight--bold"
+      },
+      "valuesByMode": {
+        "m:value": 700
+      }
+    },
+    {
+      "id": "V:allScopes",
+      "name": "size/icon",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:primitives",
+      "scopes": [
+        "ALL_SCOPES"
+      ],
+      "codeSyntax": {
+        "WEB": "--size--icon"
+      },
+      "valuesByMode": {
+        "m:value": 24
+      }
+    },
+    {
+      "id": "V:noScopes",
+      "name": "size/rule",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:primitives",
+      "scopes": [],
+      "codeSyntax": {
+        "WEB": "--size--rule"
+      },
+      "valuesByMode": {
+        "m:value": 1
+      }
+    }
+  ]
+}

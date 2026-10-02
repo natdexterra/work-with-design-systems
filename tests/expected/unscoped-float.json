@@ -1,0 +1,49 @@
+{
+  "_readme": "Answer key for tests/fixtures/unscoped-float.json. Written from the fixture and the formatter's unit rule: px for a dimension scope, % for an opacity scope, a bare number for FONT_WEIGHT, and a refusal for any other FLOAT, ALL_SCOPES and [] included. The formatter entry receives the exporter entry's real result, so the scopes it reads are the ones the exporter carries.",
+  "scripts": {
+    "scripts/build/exportTokensToCSS.js": {
+      "args": {},
+      "checks": [
+        {
+          "id": "scopes-carried",
+          "basis": "size/icon is stored with scopes [\"ALL_SCOPES\"]; the exporter passes scopes through unchanged, which is what the formatter's unit rule reads.",
+          "path": "0.variables",
+          "where": {
+            "name": "size/icon"
+          },
+          "expect": {
+            "scopes": [
+              "ALL_SCOPES"
+            ],
+            "valuesByMode": {
+              "Value": {
+                "type": "number",
+                "value": 24
+              }
+            }
+          }
+        }
+      ]
+    },
+    "format: refuses a FLOAT with no unit rule": {
+      "script": "scripts/export/formatTokensCSS.js",
+      "input": "scripts/build/exportTokensToCSS.js",
+      "call": "formatTokensCSS",
+      "args": {},
+      "checks": [
+        {
+          "id": "unscoped-float-refused",
+          "basis": "size/icon (ALL_SCOPES) and size/rule ([]) have no scope that names a unit: two errors, in variable order, and no CSS. space/16 (GAP, WIDTH_HEIGHT) and font-weight/bold (FONT_WEIGHT) have a rule, so the list holds exactly two.",
+          "expect": {
+            "ok": false,
+            "css": null,
+            "errors": [
+              "size/icon: FLOAT scoped [\"ALL_SCOPES\"] has no unit rule; scope it explicitly (Critical Rule #6)",
+              "size/rule: FLOAT scoped [] has no unit rule; scope it explicitly (Critical Rule #6)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
