@@ -17,11 +17,13 @@
  * Values: a color is its hex (rgba when a < 1), an alpha token the exporter's
  * `css`, an alias var() of its target's codeSyntax.WEB. A FLOAT takes px when
  * scoped to a dimension, % when scoped to an opacity (Figma stores both
- * opacities as a percent), no unit otherwise. A FONT_FAMILY string is quoted.
+ * opacities as a percent), a bare number when scoped to FONT_WEIGHT. A
+ * FONT_FAMILY string is quoted.
  * Refuses: a codeSyntax.WEB that is not a CSS custom property, one CSS name on
  * two variables, an alias target missing or ambiguous (the export carries the
- * target's NAME, not its id), an unresolved alpha opacity, a non-default mode
- * with no target, a target naming a collection or mode the export lacks.
+ * target's NAME, not its id), an unresolved alpha opacity, a FLOAT whose scopes
+ * name no unit (ALL_SCOPES and [] among them), a non-default mode with no
+ * target, a target naming a collection or mode the export lacks.
  * Limits: one layer (no upstream --ds- layer), no clamp() for responsive type.
  */
 
@@ -79,7 +81,10 @@ function formatTokensCSS(exported, targets = {}) {
     if (entry.type === "number") {
       const n = +Number(entry.value).toFixed(4); // FLOATs are 32-bit: 22.4 may read back as 22.399999618530273
       if (scopes.some((s) => PERCENT_SCOPES.has(s))) return `${n}%`;
-      return scopes.some((s) => PX_SCOPES.has(s)) ? `${n}px` : String(n);
+      if (scopes.some((s) => PX_SCOPES.has(s))) return `${n}px`;
+      if (scopes.includes("FONT_WEIGHT")) return String(n);
+      // ALL_SCOPES, [] or a scope with no CSS unit: any unit picked here is a guess.
+      throw new Error(`${v.name}: FLOAT scoped ${JSON.stringify(scopes)} has no unit rule; scope it explicitly (Critical Rule #6)`);
     }
     return scopes.includes("FONT_FAMILY") ? JSON.stringify(String(entry.value)) : String(entry.value);
   };
