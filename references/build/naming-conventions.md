@@ -149,7 +149,7 @@ See `patterns-guide.md` for the full structure of a pattern frame.
 
 - `btn` instead of `Button` — don't abbreviate component names
 - `color1`, `color2` — meaningless names
-- `new-button`, `button-v2` — versioning in component names (use the component description field instead)
+- `new-button`, `button-v2` — versioning in component names (a version belongs in the library's release notes, never in the name or the description)
 - Mixing casing: `primaryButton` alongside `SecondaryButton`
 - Nesting groups deeper than 3 levels in variable names: `color/bg/surface/card/inner` (too deep — flatten)
 - Slot names like `slot-1`, `Container` — slot names must communicate position or role
