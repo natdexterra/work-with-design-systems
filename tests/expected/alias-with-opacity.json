@@ -77,6 +77,12 @@
           "expect": 1
         },
         {
+          "id": "no-collisions",
+          "basis": "All ten codeSyntax.WEB names use the --group--leaf form and stay distinct after dash collapse and lowercasing (--color-blue-500, --color-neutral-white, --color-neutral-black, --opacity-10, --color-text-link, --color-text-disabled, --color-bg-ghost, --color-bg-legacy-tint, --color-bg-page, --color-overlay-scrim). A clean set: the double-dash convention alone must not read as a collision.",
+          "path": "codeSyntaxCollisions",
+          "expect": []
+        },
+        {
           "id": "scrim-not-paired",
           "basis": "color/overlay/scrim is an alpha token but neither color/text/* nor color/bg/*, so the pairing scope is unchanged — it contributes no entry.",
           "path": "contrast.worstLight",
