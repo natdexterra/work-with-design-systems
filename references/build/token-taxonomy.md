@@ -145,7 +145,7 @@ Minimum hues for a v1 system:
 
 ## Responsive type via modes
 
-Font-size and line-height are the exception to "no modes in Primitives." For responsive UIs, put the type scale in a collection with two modes — `Desktop` (default) and `Mobile` — and give every `font-size/*` and `line-height/*` token a value per mode. The two mode values are the `clamp()` endpoints on code export (Mobile = min, Desktop = max). Line-height values are pixels (variables are unitless → interpreted as px; never percent — Critical Rule #4). Preview mobile by setting the frame's mode via `setExplicitVariableModeForCollection(typographyCollection, mobileModeId)` while reusing the same text styles.
+Font-size and line-height are the exception to "no modes in Primitives." For responsive UIs, put the type scale in a collection with two modes — `Desktop` (default) and `Mobile` — and give every `font-size/*` and `line-height/*` token a value per mode. On code export the Mobile mode takes a media-query target; the formatter does not emit `clamp()` (`code-export.md`, "Not covered"). Line-height values are pixels (variables are unitless → interpreted as px; never percent — Critical Rule #4). Preview mobile by setting the frame's mode via `setExplicitVariableModeForCollection(typographyCollection, mobileModeId)` while reusing the same text styles.
 
 ## Platform modes
 

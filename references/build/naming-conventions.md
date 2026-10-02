@@ -105,8 +105,8 @@ Examples: `Acme Design System v1.0`, `SaaS Kit DS v2.1`
 | High contrast | `High Contrast` | `@media (prefers-contrast: more)` |
 | Brand A | `Brand A` | `[data-brand="a"]` |
 | Brand B | `Brand B` | `[data-brand="b"]` |
-| Responsive, default | `Desktop` | `:root` (the `clamp()` max) |
-| Responsive | `Mobile` | the `clamp()` min |
+| Responsive, default | `Desktop` | `:root` |
+| Responsive | `Mobile` | a media-query target (`code-export.md`, "Not covered") |
 | Platform, default | `Web` | `:root` |
 | Platform | `Presentation` | chosen in Phase 1e: `[data-mode="presentation"]`, a file of its own, or out of scope |
 
