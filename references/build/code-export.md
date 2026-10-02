@@ -197,7 +197,7 @@ A collection can have more than one mode that is not a theme: platform modes, su
 
 | Strategy | Targets for Typography with Web (default) and Presentation | Use when |
 |----------|-------------------------------------------------------------|----------|
-| An attribute | `{ "Typography": { "Presentation": "[data-mode=\"presentation\"]" } }` | One stylesheet serves both outputs and the root or a container carries the attribute |
+| An attribute | `{ "Typography": { "Presentation": "[data-mode=\"presentation\"]" } }` | One stylesheet serves both outputs and the root element carries the attribute (on a container, an alias declared in `:root` keeps the value it resolved at the root) |
 | A file per mode | `{ "Typography": { "Web": ":root", "Presentation": null } }` for `tokens.web.css`, then `{ "Typography": { "Web": null, "Presentation": ":root" } }` for `tokens.presentation.css` | Each output loads its own stylesheet; each file is complete on its own |
 | One mode exported, the other out of scope | `{ "Typography": { "Presentation": null } }` | The other platform does not read CSS. State in the AI rules file that this mode's values are not in `tokens.css` |
 

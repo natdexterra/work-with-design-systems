@@ -16,8 +16,8 @@
  * when the percent is itself a token) and a ready `css` string.
  *
  * Note: This is a read-only script. It does NOT write files.
- * Claude formats the returned JSON into tokens.css using
- * references/build/code-export.md.
+ * scripts/export/formatTokensCSS.js formats the returned JSON into tokens.css
+ * (references/build/code-export.md, "Formatting tokens.css").
  */
 
 const collections = await figma.variables.getLocalVariableCollectionsAsync();
