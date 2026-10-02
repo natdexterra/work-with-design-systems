@@ -225,6 +225,7 @@ Present summary:
 - Naming convention
 - Component numbering convention (`C{section}.{number} {Name}`)
 - CSS token naming for codeSyntax.WEB, including the dash form: single (`--color-bg-primary`) or double (`--color-bg--primary`), one form for the whole project
+- If code export is in scope: the CSS strategy for every mode that is not a collection's default. Theme modes: `[data-theme]`, `prefers-color-scheme`, both, or one mode only. Platform modes: an attribute, a file per mode, or one mode exported and the other out of scope (`references/build/code-export.md`)
 
 **Do not proceed until user confirms.**
 
@@ -390,13 +391,15 @@ Ask the user how Light/Dark modes should resolve in CSS:
 
 Multi-brand modes: use the same attribute pattern with brand-specific values (`[data-brand="acme"]`).
 
+Platform modes (a collection whose modes are output platforms, not themes): use the strategy chosen in Phase 1e. See `code-export.md`, "Collections with platform modes". Every mode that is not its collection's default needs a target; the formatter refuses a mode without one.
+
 Read `references/build/code-export.md` for full structure with examples for each strategy.
 
 #### 6d. Generate files
 
 For each file, use Claude's file write tools (NOT `use_figma`). Generate:
 
-1. **`tokens.css`** — call `scripts/build/exportTokensToCSS.js` via `use_figma` to read all variables and return structured token data. Then format into the chosen CSS strategy (from 6c) and write to disk via file write tools.
+1. **`tokens.css`**: call `scripts/build/exportTokensToCSS.js` via `use_figma` and save the JSON it returns to a file. Write the strategy from 6c as a targets map (`references/build/code-export.md`, "Formatting tokens.css"), then run `node scripts/export/formatTokensCSS.js <export.json> <targets.json> > tokens.css` from the skill folder. The CSS comes from that formatter and is never written or patched by the model from prose: when a value is wrong, fix the variable, its codeSyntax or the targets map, and run it again. When the formatter refuses, its errors name what to fix.
 
 2. **AI rules file** — read template from `references/build/code-export.md` "AI rules templates" section. Fill in component list (from current build), token reference list, audit script reference. Write to scoped path determined in 6b.
 
@@ -404,7 +407,7 @@ For each file, use Claude's file write tools (NOT `use_figma`). Generate:
 
 4. **(Optional) `specs/patterns/*.md`** — only if user explicitly asks ("also generate spec files for patterns"). One markdown file per pattern documented in Phase 4d. Use template from `references/build/code-export.md`.
 
-If running in Claude.ai web (no file write tools), output each file's contents in fenced code blocks with clear "save as: {path}" headers.
+If running in Claude.ai web (no file write tools), output each file's contents in fenced code blocks with clear "save as: {path}" headers. Where Node cannot run either, `tokens.css` is the exception: output the exporter JSON, the targets map and the formatter command, never a hand-formatted `tokens.css`.
 
 #### 6e. Verify
 

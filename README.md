@@ -52,7 +52,7 @@ After inspect, the skill ALWAYS pauses with the report and waits for your decisi
 - **Phase 3 — File structure.** Standard pages: Cover, Getting Started, Foundations, one per component group, Patterns (optional), Utilities. Foundations documents colours as role-grouped swatch cards (swatch + name + token + HEX) and type specimens (Desktop/Mobile). Reusable Page Title component. Component pages use fixed-width (996px) wrapper. Skipped when documentation pages not required.
 - **Phase 4 — Components.** Suggests core 10, you confirm. For atoms (Button, Input, Checkbox), full variant matrices with all states, Auto Layout, variable bindings, TEXT properties. For compound (Card, Modal, Dialog), runs slot decision — named slots replace detach patterns. Writes structured description for every public component. Validates after each component. Optional Phase 4d documents composition patterns.
 - **Phase 5 — QA.** Validation script checks for missing collections, ALL_SCOPES violations, hardcoded fills, missing Auto Layout, Light/Dark coverage, missing descriptions, missing slot decisions. Builds test page to verify composability. Closes with optional Phase 6 prompt.
-- **Phase 6 — Sync to code (optional, OFF by default).** Generates `tokens.css` with three-layer indirection (upstream → project aliases with fallback → components reference aliases), CI-ready Node.js audit script, and AI rules file (`.claude/rules/design-system.md`, `.cursor/rules/design-system.mdc`, or `AGENTS.md` section). Light/Dark via `[data-theme]`, `@media (prefers-color-scheme)`, or both. Triggers only on explicit user request.
+- **Phase 6 — Sync to code (optional, OFF by default).** Generates `tokens.css` with three-layer indirection (upstream → project aliases with fallback → components reference aliases), CI-ready Node.js audit script, and AI rules file (`.claude/rules/design-system.md`, `.cursor/rules/design-system.mdc`, or `AGENTS.md` section). Light/Dark via `[data-theme]`, `@media (prefers-color-scheme)`, or both; platform modes (a web and a presentation mode of one collection) via an attribute, a file per mode, or one mode out of scope. `tokens.css` is written by a deterministic formatter over the exported JSON, never by hand. Triggers only on explicit user request.
 
 The skill pauses between phases for your review.
 
@@ -97,10 +97,13 @@ work-with-design-systems/
 │   │   ├── audit-detached.js
 │   │   └── audit-naming.js
 │   │
-│   └── build/                            # Build mode scripts (write)
-│       ├── validate-design-system.js     # Final QA validation
-│       ├── exportTokensToCSS.js          # Phase 6a — read variables for export
-│       └── fixHardcodedToTokens.js       # Fuzzy auto-fix for inspect → build flow
+│   ├── build/                            # Build mode scripts (write)
+│   │   ├── validate-design-system.js     # Final QA validation
+│   │   ├── exportTokensToCSS.js          # Phase 6a — read variables for export
+│   │   └── fixHardcodedToTokens.js       # Fuzzy auto-fix for inspect → build flow
+│   │
+│   └── export/                           # Runs in Node, not in use_figma
+│       └── formatTokensCSS.js            # Phase 6d: exporter JSON to tokens.css
 │
 ├── tests/                                # The fixed set — `npm test`
 │   ├── run.js                            # Runner: grid + score line
@@ -112,7 +115,7 @@ work-with-design-systems/
     └── file-structure-template.md
 ```
 
-Reference and script files load on demand. Inspect mode loads `references/inspect/` and `scripts/inspect/`. Build mode loads `references/build/` and `scripts/build/`. Phase 6 specifically loads `code-export.md` and `exportTokensToCSS.js`. Critical rules in SKILL.md apply to all modes.
+Reference and script files load on demand. Inspect mode loads `references/inspect/` and `scripts/inspect/`. Build mode loads `references/build/` and `scripts/build/`. Phase 6 specifically loads `code-export.md`, `exportTokensToCSS.js` (in `use_figma`) and `formatTokensCSS.js` (in Node). Critical rules in SKILL.md apply to all modes.
 
 ## Tests
 
@@ -122,7 +125,7 @@ The scripts in `scripts/` run inside Figma, but their logic is ordinary JavaScri
 npm test          # no dependencies
 ```
 
-`tests/run-script.js` wraps a script's text in an `AsyncFunction` and hands it a mock `figma` built from a JSON fixture; `tests/run.js` runs every script named in an answer key, compares the result field by field, and prints a fixture × check grid with a score line, exiting non-zero on any FAIL.
+`tests/run-script.js` wraps a script's text in an `AsyncFunction` and hands it a mock `figma` built from a JSON fixture; `tests/run.js` runs every script named in an answer key, compares the result field by field, and prints a fixture × check grid with a score line, exiting non-zero on any FAIL. A key entry can also feed another entry's result into a Node module (`script`, `input`, `call`): that is how `formatTokensCSS.js` is tested on the exporter's real output.
 
 Run it **before and after every script edit**. The point of running it first is the red row: it states what the change has to fix, in the script's own output, before the change exists. Fixtures are JSON — adding one for a new Figma shape costs a few minutes and replaces checking the change by hand on a live file.
 
