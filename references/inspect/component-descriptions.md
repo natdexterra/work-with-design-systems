@@ -58,7 +58,7 @@ Internal: shared layout for Button variants. Not for direct use.
 
 Drafts are *proposals*. Always show to the user for review before writing back to the component description in build mode.
 
-**Flag history in an existing description.** A description is the spec, not a changelog. When the current text carries dates, people's names, decision history ("approved", "decided", "earlier look"), node ids, repo or file paths, scan notes or instance counts, report it as a finding, draft the spec-only rewrite, and list each cut fragment with the place it belongs (the project's decision records or work log). A note the template asks for (a Critical Rule #3 exception, a slot decision) stays, rewritten as the current rule.
+**Flag history in an existing description.** A description is the spec, not a changelog. When the current text carries dates, people's names, decision history ("approved", "decided", "previous version"), node ids, repo or file paths, scan notes or instance counts, report it as a finding, draft the spec-only rewrite, and list each cut fragment with the place it belongs (the project's decision records or work log). A note the template asks for (a Critical Rule #3 exception, a slot decision) stays, rewritten as the current rule.
 
 ## PROPERTY SUGGESTIONS
 

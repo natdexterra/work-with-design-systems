@@ -28,7 +28,7 @@ The same as `component-description-template.md`, "MCP delivery format":
 
 ## The spec, not a changelog
 
-A variable description states what the token is and what bounds it now. It never carries dates, people's names, decision history ("approved", "decided", "earlier look"), node ids, repo or file paths, scan notes or instance counts. That history belongs in the project's decision records and work logs. A rule that was decided is written as the rule: `Aliases only, never a literal`, not the story of the decision.
+A variable description states what the token is and what bounds it now. It never carries dates, people's names, decision history ("approved", "decided", "previous version"), node ids, repo or file paths, scan notes or instance counts. That history belongs in the project's decision records and work logs. A rule that was decided is written as the rule: `Aliases only, never a literal`, not the story of the decision.
 
 ## Example: a semantic color
 

@@ -4,7 +4,7 @@
 
 ### 2026-10-02
 
-Descriptions, modes, and names that a second tool rewrites; one validator check; a formatter that writes `tokens.css`. `npm test`: 48 checks over three fixtures. The validator ran read-only on a live design-system file before and after the change, on the same page: the same 22 findings (0 errors, 21 warnings, 1 info) both times, and 0 collisions.
+Descriptions, modes, and names that a second tool rewrites; one validator check; a formatter that writes `tokens.css`. `npm test`: 50 checks over four fixtures. The validator ran read-only on a live design-system file before and after the change, on the same page: the same 22 findings (0 errors, 21 warnings, 1 info) both times, and 0 collisions.
 
 #### Added
 
@@ -21,6 +21,14 @@ Descriptions, modes, and names that a second tool rewrites; one validator check;
 - **One codeSyntax dash form per project.** `naming-conventions.md`: the single-dash and the double-dash form are both valid CSS; the form is confirmed in Phase 1e and never mixed. Rule #5, Phase 1c and the Phase 5 checklist add uniqueness after dash collapse.
 - **Phase 6 never writes `tokens.css` from prose.** 6d saves the exporter JSON, writes the targets map and runs the formatter; a wrong value is fixed in the variable, its codeSyntax or the targets map. Where Node cannot run, the output is the JSON, the targets map and the command. Phase 1e asks for the CSS strategy of every non-default mode when export is in scope.
 - **Other design surfaces: names must survive the import.** Before pushing tokens into a second tool, run the collision check over that tool's normalization; after the push, read the names back and diff them 1:1 against the file. A name the import changed is a drift, fixed by renaming at the source, never by hand in the tool.
+
+#### Fixed
+
+- **The formatter command ran in the wrong folder.** Phase 6d and `code-export.md` said to run it from the skill folder, which holds neither the export and the targets map nor the project's `tokens.css`. It now runs from the project root with the script's path in front. Its first stderr line is the variable and collection count, to compare with the validator's stats.
+- **A FLOAT with no unit scope came out unitless.** A FLOAT at `ALL_SCOPES`, at `[]`, or with no dimension, opacity or font-weight scope is now refused, with the variable and its scopes named: fix the scopes (Critical Rule #6) before Phase 6. New fixture `unscoped-float`.
+- **`clamp()` was promised and never emitted.** Phase 2b, `token-taxonomy.md` and the mode table in `naming-conventions.md` now send the Mobile type mode to a media-query target, as `code-export.md` says.
+- **The attribute strategy for platform modes** puts the attribute on the root element: on a container, an alias declared in `:root` keeps the value it resolved at the root.
+- **Smaller fixes.** The exporter header names the formatter. The report template counts dash-collapse collisions and carries `codeSyntaxCollisions` in its JSON. A versioned component name sends the version to the release notes, not to the description. The history example in the description rules reads "previous version".
 
 ## 2.1.1 — 2026-09-22
 

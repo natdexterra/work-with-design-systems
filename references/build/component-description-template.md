@@ -53,7 +53,7 @@ However, `get_design_context` ALSO escapes markdown special characters and colla
 
 Because newlines collapse, UPPERCASE headers act as the only reliable section markers in the MCP-delivered text. Keep them short and single-word so they parse cleanly even when run together with prose.
 
-**The spec, not a changelog.** A description states what the component is and how to use it now. It never carries dates, people's names, decision history ("approved", "decided", "earlier look"), node ids, repo or file paths, scan notes or instance counts. A consuming agent reads every line as a rule, so a line of history becomes an instruction. That history belongs in the project's decision records and work logs.
+**The spec, not a changelog.** A description states what the component is and how to use it now. It never carries dates, people's names, decision history ("approved", "decided", "previous version"), node ids, repo or file paths, scan notes or instance counts. A consuming agent reads every line as a rule, so a line of history becomes an instruction. That history belongs in the project's decision records and work logs.
 
 Where this skill asks for a note in the description (a hardcoded dimension under Critical Rule #3, the slot decision of Phase 4c, a boolean + instance swap that stands in until slots are available), write the note as the current rule, never as how it came to be: `Track padding 3px, outside the spacing scale`, `Body is a slot, Leading is an instance swap`.
 
