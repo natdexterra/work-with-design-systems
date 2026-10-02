@@ -15,6 +15,13 @@
  *          recursively, extra keys in the result are ignored, and the sentinel
  *          "__absent__" asserts the key is not there at all.
  *
+ * A key entry is a use_figma script run through the mock, keyed by its path.
+ * An entry with `input` is a Node module instead: `script` names its file,
+ * `call` the exported function, and `input` the key of an entry that ran
+ * earlier in the same key, whose result it receives (the Phase 6 pipeline:
+ * exporter in use_figma, then the formatter in Node, on the exporter's real
+ * output rather than a hand-copied one).
+ *
  * Run it before and after every script edit. A red row is the statement of what
  * a fix must change; a green row that goes red is the regression.
  */
@@ -107,11 +114,18 @@ async function main() {
     const fixture = loadFixture(path.join(FIXTURE_DIR, fixtureFile));
     const key = JSON.parse(fs.readFileSync(keyPath, "utf8"));
 
-    for (const [scriptRelPath, spec] of Object.entries(key.scripts)) {
+    const results = {};
+    for (const [entryKey, spec] of Object.entries(key.scripts)) {
+      const scriptRelPath = spec.script || entryKey;
       let result = null;
       let crash = null;
       try {
-        result = await runScript(path.join(ROOT, scriptRelPath), fixture, spec.args || {});
+        if (spec.input) {
+          if (!(spec.input in results)) throw new Error(`input "${spec.input}" has not run before "${entryKey}"`);
+          result = require(path.join(ROOT, scriptRelPath))[spec.call](results[spec.input], spec.args || {});
+        } else {
+          result = await runScript(path.join(ROOT, scriptRelPath), fixture, spec.args || {});
+        }
         if (typeof result === "string") {
           try {
             result = JSON.parse(result);
@@ -122,6 +136,7 @@ async function main() {
       } catch (err) {
         crash = err;
       }
+      results[entryKey] = result;
 
       for (const check of spec.checks) {
         const rowKey = `${scriptRelPath}::${check.id}`;

@@ -1,0 +1,254 @@
+{
+  "_readme": "Fixture for the Phase 6 pipeline: exportTokensToCSS.js runs through the mock, formatTokensCSS.js formats its output. Three collections, one per mode pattern the formatter has to place: Primitives (one mode), Typography with two platform modes (Web, the default, and Presentation: same names, a value each), and Semantic with two theme modes (Light, the default, and Dark). The values cover each output rule: a colour literal, a bare alias (one spelled var(--name)), a px FLOAT, a unitless FONT_WEIGHT FLOAT, a quoted FONT_FAMILY string, a FLOAT stored as the 32-bit reading of 22.4, and a BOOLEAN with no CSS value.",
+  "currentPageId": "P:foundations",
+  "pages": [
+    {
+      "id": "P:foundations",
+      "name": "Foundations",
+      "children": []
+    }
+  ],
+  "textStyles": [],
+  "effectStyles": [],
+  "paintStyles": [],
+  "collections": [
+    {
+      "id": "C:primitives",
+      "name": "Primitives",
+      "defaultModeId": "m:value",
+      "modes": [
+        {
+          "modeId": "m:value",
+          "name": "Value"
+        }
+      ],
+      "variableIds": [
+        "V:ink",
+        "V:white",
+        "V:space16",
+        "V:bold",
+        "V:debug"
+      ]
+    },
+    {
+      "id": "C:type",
+      "name": "Typography",
+      "defaultModeId": "m:web",
+      "modes": [
+        {
+          "modeId": "m:web",
+          "name": "Web"
+        },
+        {
+          "modeId": "m:pres",
+          "name": "Presentation"
+        }
+      ],
+      "variableIds": [
+        "V:family",
+        "V:caption",
+        "V:captionLh"
+      ]
+    },
+    {
+      "id": "C:semantic",
+      "name": "Semantic",
+      "defaultModeId": "m:light",
+      "modes": [
+        {
+          "modeId": "m:light",
+          "name": "Light"
+        },
+        {
+          "modeId": "m:dark",
+          "name": "Dark"
+        }
+      ],
+      "variableIds": [
+        "V:text",
+        "V:bg"
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "id": "V:ink",
+      "name": "color/ink-900",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL"
+      ],
+      "codeSyntax": {
+        "WEB": "--color--ink-900"
+      },
+      "valuesByMode": {
+        "m:value": {
+          "r": 0.1,
+          "g": 0.1,
+          "b": 0.1,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "V:white",
+      "name": "color/white",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL"
+      ],
+      "codeSyntax": {
+        "WEB": "--color--white"
+      },
+      "valuesByMode": {
+        "m:value": {
+          "r": 1,
+          "g": 1,
+          "b": 1,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "V:space16",
+      "name": "space/16",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:primitives",
+      "scopes": [
+        "GAP",
+        "WIDTH_HEIGHT"
+      ],
+      "codeSyntax": {
+        "WEB": "--space--16"
+      },
+      "valuesByMode": {
+        "m:value": 16
+      }
+    },
+    {
+      "id": "V:bold",
+      "name": "font-weight/bold",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:primitives",
+      "scopes": [
+        "FONT_WEIGHT"
+      ],
+      "codeSyntax": {
+        "WEB": "--font-weight--bold"
+      },
+      "valuesByMode": {
+        "m:value": 700
+      }
+    },
+    {
+      "id": "V:debug",
+      "name": "flag/debug",
+      "resolvedType": "BOOLEAN",
+      "variableCollectionId": "C:primitives",
+      "scopes": [],
+      "codeSyntax": {},
+      "valuesByMode": {
+        "m:value": true
+      }
+    },
+    {
+      "id": "V:family",
+      "name": "font-family/body",
+      "resolvedType": "STRING",
+      "variableCollectionId": "C:type",
+      "scopes": [
+        "FONT_FAMILY"
+      ],
+      "codeSyntax": {
+        "WEB": "--font-family--body"
+      },
+      "valuesByMode": {
+        "m:web": "Inter",
+        "m:pres": "Arial"
+      }
+    },
+    {
+      "id": "V:caption",
+      "name": "font-size/caption",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:type",
+      "scopes": [
+        "FONT_SIZE"
+      ],
+      "codeSyntax": {
+        "WEB": "--font-size--caption"
+      },
+      "valuesByMode": {
+        "m:web": 14,
+        "m:pres": 12
+      }
+    },
+    {
+      "id": "V:captionLh",
+      "name": "line-height/caption",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:type",
+      "scopes": [
+        "LINE_HEIGHT"
+      ],
+      "codeSyntax": {
+        "WEB": "--line-height--caption"
+      },
+      "valuesByMode": {
+        "m:web": 22.399999618530273,
+        "m:pres": 16
+      }
+    },
+    {
+      "id": "V:text",
+      "name": "color/text/primary",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": [
+        "TEXT_FILL"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--color-text--primary)"
+      },
+      "valuesByMode": {
+        "m:light": {
+          "type": "VARIABLE_ALIAS",
+          "id": "V:ink"
+        },
+        "m:dark": {
+          "type": "VARIABLE_ALIAS",
+          "id": "V:white"
+        }
+      }
+    },
+    {
+      "id": "V:bg",
+      "name": "color/bg/page",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL"
+      ],
+      "codeSyntax": {
+        "WEB": "--color-bg--page"
+      },
+      "valuesByMode": {
+        "m:light": {
+          "type": "VARIABLE_ALIAS",
+          "id": "V:white"
+        },
+        "m:dark": {
+          "type": "VARIABLE_ALIAS",
+          "id": "V:ink"
+        }
+      }
+    }
+  ]
+}

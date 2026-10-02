@@ -174,6 +174,97 @@
         }
       ]
     },
+    "format: data-theme attribute": {
+      "script": "scripts/export/formatTokensCSS.js",
+      "input": "scripts/build/exportTokensToCSS.js",
+      "call": "formatTokensCSS",
+      "args": {
+        "Semantic": {
+          "Dark": "[data-theme=\"dark\"]"
+        }
+      },
+      "checks": [
+        {
+          "id": "theme-alpha-literal-opacity",
+          "basis": "color/text/disabled Light = color/blue-500 at opacity 10: the exporter's ready color-mix value, unchanged.",
+          "path": "declarations",
+          "where": {
+            "target": ":root",
+            "name": "--color--text-disabled"
+          },
+          "expect": {
+            "value": "color-mix(in srgb, var(--color--blue-500) 10%, transparent)"
+          }
+        },
+        {
+          "id": "theme-alpha-aliased-opacity",
+          "basis": "color/bg/ghost Light = color/blue-500 at opacity/10, which resolves to 10.",
+          "path": "declarations",
+          "where": {
+            "target": ":root",
+            "name": "--color--bg-ghost"
+          },
+          "expect": {
+            "value": "color-mix(in srgb, var(--color--blue-500) 10%, transparent)"
+          }
+        },
+        {
+          "id": "theme-bare-alias",
+          "basis": "color/text/link is a bare alias to color/blue-500, codeSyntax --color--blue-500.",
+          "path": "declarations",
+          "where": {
+            "target": ":root",
+            "name": "--color--text-link"
+          },
+          "expect": {
+            "value": "var(--color--blue-500)"
+          }
+        },
+        {
+          "id": "theme-dark-literal-rgba",
+          "basis": "color/bg/legacy-tint Dark = {1,1,1,0.05}: the rgba form, under the Dark attribute.",
+          "path": "declarations",
+          "where": {
+            "target": "[data-theme=\"dark\"]",
+            "name": "--color--bg-legacy-tint"
+          },
+          "expect": {
+            "value": "rgba(255, 255, 255, 0.05)"
+          }
+        },
+        {
+          "id": "theme-dark-alias",
+          "basis": "color/bg/page Dark aliases color/neutral-black.",
+          "path": "declarations",
+          "where": {
+            "target": "[data-theme=\"dark\"]",
+            "name": "--color--bg-page"
+          },
+          "expect": {
+            "value": "var(--color--neutral-black)"
+          }
+        },
+        {
+          "id": "theme-opacity-percent",
+          "basis": "opacity/10 = 10, scoped COLOR_OPACITY: Figma's percent, so 10%.",
+          "path": "declarations",
+          "where": {
+            "target": ":root",
+            "name": "--opacity--10"
+          },
+          "expect": {
+            "value": "10%"
+          }
+        },
+        {
+          "id": "theme-count",
+          "basis": "Primitives 4 + Semantic Light 6 + Semantic Dark 6 = 16.",
+          "path": "declarations",
+          "count": {},
+          "expect": 16
+        }
+      ]
+    },
     "scripts/inspect/audit-tokens.js": {
       "args": { "COMPONENT_SET_ID": "N:cs" },
       "checks": [
