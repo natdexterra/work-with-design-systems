@@ -25,7 +25,7 @@
           "path": "issues",
           "count": {
             "severity": "error",
-            "message": "codeSyntax.WEB names collide after dash collapse to \"--color-text-primary\" (a tool that collapses dashes on import keeps one token for both): color/ink-900 → \"--color--text-primary\", color/text/primary → \"--color-text--primary\""
+            "message": "codeSyntax.WEB names collide after dash collapse to \"--color-text-primary\" (a tool that normalizes names on import keeps only one of them): color/ink-900 → \"--color--text-primary\", color/text/primary → \"--color-text--primary\""
           },
           "expect": 1
         },
