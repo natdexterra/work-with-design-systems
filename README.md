@@ -30,7 +30,7 @@ The skill auto-detects mode from your request (or asks if unclear).
 
 - **Module 1 — Token compliance.** Variable binding coverage. Errors: unbound fills, strokes, padding, gaps, corner radii. Warnings: raw opacity (naming the alias-with-opacity token that replaces it when the file holds one), blur radius, animation durations. Text nodes without text styles flagged separately.
 - **Module 2 — Interactive states.** Compares variants against expected state matrices per component type. Missing states (Pressed on Button, Error on Input) listed with full expected set.
-- **Module 3 — Accessibility.** Computed WCAG 2.1 AA checks. Color contrast (4.5:1 normal, 3:1 large). Touch target (44×44px minimum for interactive). Font size warnings <12px, errors <10px. Focus indicator presence.
+- **Module 3 — Accessibility.** Computed checks. Color contrast (WCAG 1.4.3, AA: 4.5:1 normal, 3:1 large). Focus indicator presence (2.4.7, AA). Touch target for interactive components: passes at 44×44px (2.5.5, AAA) and reports whether it meets the 24×24px AA floor of WCAG 2.2 (2.5.8). Font size warnings <12px, errors <10px, a house rule rather than a WCAG criterion.
 - **Module 4 — Detached instances.** Scans all pages for frames matching component names but not instances. Reports with page, parent path, node ID.
 - **Module 5 — Naming quality.** Flags generic Figma auto-names (Frame 47, Rectangle 3) inside components.
 - **Module 6 — Component descriptions.** Generates structured documentation per component (PURPOSE, BEHAVIOR, COMPOSITION, USAGE, CODE NOTES). Uses reasoning rather than computation.

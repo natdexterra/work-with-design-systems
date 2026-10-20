@@ -11,6 +11,7 @@ Default format. Human-readable, paste-ready into PR descriptions or design revie
 
 **File:** {file_name}
 **Date:** {audit_date}
+**Standard:** {wcag_version_and_level}
 **Overall score:** {overall_score}/100 ({score_label})
 
 ---
@@ -77,7 +78,7 @@ Default format. Human-readable, paste-ready into PR descriptions or design revie
 | Check | Result | Details |
 |---|---|---|
 | Contrast | {pass/fail} | {details} |
-| Touch target | {pass/fail} | {width}×{height}px |
+| Touch target | {pass/fail} | {width}×{height}px ({tier}) |
 | Font size | {pass/fail} | {details} |
 | Focus indicator | {pass/fail} | {details} |
 
@@ -121,6 +122,8 @@ _(included only if Module 6 was run)_
 2. {suggestion_2}
 ```
 
+**Standard** is the WCAG version and level the product answers to. It comes from the client or the applicable law; when neither names one, it reads "not stated". The module's own bars (AA contrast, the 44×44 target) are what was measured, not a claim about which standard applies. `{tier}` is the tier the touch-target check names: 2.5.5 AAA, 2.5.8 AA only, or below 2.5.8 AA.
+
 ---
 
 ## JSON report template
@@ -133,7 +136,8 @@ For programmatic consumers — CI gates, dashboards, Slack bots. Mirrors the mar
     "name": "string",
     "auditedAt": "ISO 8601 timestamp",
     "score": 0,
-    "scoreLabel": "Production ready | Nearly ready | Needs work | Not ready"
+    "scoreLabel": "Production ready | Nearly ready | Needs work | Not ready",
+    "standard": "WCAG version and level | not stated"
   },
   "fileWideIssues": {
     "allScopesViolations": 0,
@@ -241,11 +245,12 @@ Use this when the user asks for component specs to feed into Claude Code, Cursor
 | Disabled | {changes} | disabled prop |
 
 ## Accessibility requirements
+- Standard: {wcag_version_and_level}
 - Role: {role}
 - Aria attributes: {aria_attrs}
 - Keyboard: {keyboard_behavior}
 - Contrast: {contrast_status}
-- Touch target: {target_size}
+- Touch target: {target_size} ({tier})
 
 ## Composition
 {internal_structure_with_slot_descriptions}
@@ -255,7 +260,7 @@ Use this when the user asks for component specs to feed into Claude Code, Cursor
 - {note_2}
 ```
 
-The AI prompt format keeps errors and warnings in separate tables. AI generators that don't natively understand severity will treat the error table as the "must fix" set and the warning table as "review during implementation."
+The Standard line follows the markdown report's rule: the client's or the law's WCAG version and level, or "not stated". The AI prompt format keeps errors and warnings in separate tables. AI generators that don't natively understand severity will treat the error table as the "must fix" set and the warning table as "review during implementation."
 
 ---
 

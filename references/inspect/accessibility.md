@@ -1,6 +1,6 @@
 # Module 3 — Accessibility
 
-Runs WCAG 2.1 AA checks on a component set's internals. Source script: `scripts/inspect/audit-accessibility.js`.
+Checks a component set's internals against WCAG 2.2: 1.4.3 Contrast (Minimum) and 2.4.7 Focus Visible at Level AA; target size against both 2.5.8 Target Size (Minimum) (AA, 24×24) and 2.5.5 Target Size (Enhanced) (AAA, 44×44); and a font-size floor that is a house rule, not a WCAG criterion. Source script: `scripts/inspect/audit-accessibility.js`.
 
 ## Goal
 
@@ -27,7 +27,7 @@ Limitations:
 - Background detection stops at the first solid-fill ancestor — if backgrounds are layered (gradient + overlay + content), the result reflects the closest solid only
 - Doesn't fold in opacity multiplication
 
-### 2. Touch target (WCAG 2.5.5)
+### 2. Touch target (WCAG 2.5.8 AA / 2.5.5 AAA)
 
 Runs only when the component-set name contains an interactive keyword (`button`, `input`, `select`, `checkbox`, `radio`, `toggle`, `switch`, `link`, `tab`).
 
@@ -35,13 +35,16 @@ Measures the *Default* variant's outer `width × height`:
 
 - The script finds the Default variant by parsing variant names and looking for `State=Default` (or `Status=Default`)
 - If no variant matches, falls back to `cs.children[0]` (so the check still runs on incomplete files)
-- Pass: width ≥ 44 AND height ≥ 44
+- Pass: width ≥ 44 AND height ≥ 44, the 2.5.5 AAA bar
+- `details` names the tier reached: ≥ 44 meets 2.5.5 AAA; 24–43 meets 2.5.8 AA only, below the 44×44 bar; < 24 is below 2.5.8 AA. `meetsAA` is `true` from 24×24 up, so a failed check still tells AA apart from below-AA
+
+Why 44 and not the AA 24: 2.5.8 (new in WCAG 2.2; WCAG 2.1 has no AA target-size criterion) also passes a smaller target when a 24 px circle centred on it meets no other target. A library component is measured alone, so that exception cannot be judged here, and a component shipped at the AA minimum leaves its consumers no headroom.
 
 Why Default specifically: Hover/Pressed variants sometimes inflate (shadow expansion, halo), inflating dimensions and hiding undersized touch targets.
 
 ### 3. Font size minimum
 
-For every `TEXT` node across all variants:
+A house rule, not a WCAG criterion: the floors below are this module's legibility bar for UI text. For every `TEXT` node across all variants:
 
 - ≥ 12px → pass
 - ≥ 10px and < 12px → warning
@@ -67,8 +70,8 @@ Manually verify the focus ring in the rendered Focused variant:
   componentName: "Button",
   componentId: "1:23",
   checks: [
-    { name: "Color contrast (WCAG 1.4.3)", passed: true,  details: "All text nodes pass", issues: [] },
-    { name: "Touch target (WCAG 2.5.5)", passed: true,  details: "44×44px (passes 44×44 minimum)", width: 44, height: 44, measuredVariant: "Type=Primary, Size=Medium, State=Default" },
+    { name: "Color contrast (WCAG 1.4.3)", passed: true,  details: "All text nodes pass contrast requirements", issues: [] },
+    { name: "Touch target (WCAG 2.5.8 AA / 2.5.5 AAA)", passed: true,  details: "44×44px, meets 2.5.5 AAA (44×44)", width: 44, height: 44, meetsAA: true, measuredVariant: "Type=Primary, Size=Medium, State=Default" },
     { name: "Font size minimum",           passed: true,  details: "All text nodes are 12px or larger", issues: [] },
     { name: "Focus indicator (WCAG 2.4.7)", passed: false, details: "No Focused state variant found" }
   ],
@@ -85,15 +88,16 @@ For non-interactive components (Card, Badge, Avatar), Touch target and Focus ind
 - Reading order — not auditable from a flat layer tree
 - Reduced motion preferences — not encoded in design
 - Color-blindness simulation — separate manual pass
-- Sufficient empty space around touch targets (related to WCAG 2.5.8)
+- The spacing exception of 2.5.8 (an undersized target passes AA when a 24 px circle centred on it meets no other target) — the module measures the component alone, not its neighbours, so it cannot evaluate it
 
 These need manual review or code-level testing. The audit reports what it can automate.
 
 ## Tuning thresholds
 
-The thresholds are WCAG defaults. A few projects need tighter ones:
+Contrast uses the WCAG AA ratios; the touch target uses the AAA 44×44 on purpose (section 2). Some projects need a different bar:
 
 - WCAG AAA contrast: 7:1 normal text, 4.5:1 large text — change `requiredRatio` literals in the script if your brand commits to AAA
-- Larger touch targets (48×48 for global accessibility guidelines like ISO 9241-411) — change `>= 44` literals
+- Touch target at the WCAG 2.2 AA floor — set `PASS_SIDE` to 24 to audit against 2.5.8. WCAG 2.1 has no AA target-size criterion, so a project held to 2.1 AA has no target-size floor to audit
+- Larger touch targets (48×48 for global accessibility guidelines like ISO 9241-411) — set `PASS_SIDE` to 48
 
 If you change thresholds, document the override in the file's audit report so consumers know the bar.

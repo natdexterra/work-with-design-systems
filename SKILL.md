@@ -327,6 +327,7 @@ Run `scripts/build/validate-design-system.js` for full file audit (variables and
 - No hardcoded fills in components
 - All components have Auto Layout
 - Light/Dark modes tested
+- Text-on-bg colour pairs in Light and Dark: the validator warns on every pair below 4.5:1; a pair between 3:1 and 4.5:1 is worded apart, as passing only for large text, because a token pair carries no font size
 - All public components have descriptions
 - All compound components have slot decision documented
 
