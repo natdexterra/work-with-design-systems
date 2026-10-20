@@ -1,0 +1,104 @@
+{
+  "_readme": "Answer key for tests/fixtures/contrast-tiers.json. Written from the fixture, not from script output: every `basis` names the fixture values the expectation comes from. Ratios use the WCAG formula by hand: a grey v has luminance ((v + 0.055) / 1.055)^2.4; on white the ratio is 1.05 / (L + 0.05), on black it is (L + 0.05) / 0.05. Token pairs carry no font size, so a pair between 3:1 and 4.5:1 is reported as large-text-only, apart from a pair below 3:1, and both count as failures of 1.4.3 for normal text.",
+  "scripts": {
+    "scripts/build/validate-design-system.js": {
+      "args": {},
+      "checks": [
+        {
+          "id": "no-error-class",
+          "basis": "Both collections are present, every variable has explicit scopes and a unique single-dash codeSyntax.WEB, both Semantic modes carry a value, all three library pages exist, and the one text style binds fontSize to font/size-16. Nothing in the fixture is an error.",
+          "path": "issues",
+          "count": { "severity": "error" },
+          "expect": 0
+        },
+        {
+          "id": "summary",
+          "basis": "Four contrast warnings and nothing else: color/text/secondary (large text only) and color/text/muted (below 3:1) on color/bg/page, each in Light and Dark. color/text/primary passes at 21:1 in both modes.",
+          "path": "summary",
+          "expect": { "errors": 0, "warnings": 4, "info": 0 }
+        },
+        {
+          "id": "light-pairs",
+          "basis": "3 color/text/* (primary, secondary, muted) x 1 color/bg/* (page) = 3.",
+          "path": "contrast.lightPairs",
+          "expect": 3
+        },
+        {
+          "id": "dark-pairs",
+          "basis": "Same 3 x 1 in the Dark mode of the Semantic collection.",
+          "path": "contrast.darkPairs",
+          "expect": 3
+        },
+        {
+          "id": "failures-below-4-5",
+          "basis": "Every pair below 4.5:1 fails 1.4.3 for normal text: secondary 3.98 and muted 2.11 in Light, secondary 3.66 and muted 2.46 in Dark = 4.",
+          "path": "contrast.failures",
+          "expect": 4
+        },
+        {
+          "id": "large-text-only-count",
+          "basis": "Between 3:1 and 4.5:1: color/text/secondary in Light (gray-500, v = 0.5, L = 0.214041, on white 1.05 / 0.264041 = 3.98) and in Dark (gray-400, v = 0.4, L = 0.132868, on black 0.182868 / 0.05 = 3.66) = 2.",
+          "path": "contrast.largeTextOnly",
+          "expect": 2
+        },
+        {
+          "id": "fail-all-sizes-count",
+          "basis": "Below 3:1: color/text/muted in Light (gray-700, v = 0.7, L = 0.447988, on white 1.05 / 0.497988 = 2.11) and in Dark (gray-300, v = 0.3, L = 0.073239, on black 0.123239 / 0.05 = 2.46) = 2.",
+          "path": "contrast.failAllSizes",
+          "expect": 2
+        },
+        {
+          "id": "band-warning-light",
+          "basis": "color/text/secondary on color/bg/page, Light, 3.98:1: a warning of its own, naming the size at which the pair is still fine.",
+          "path": "issues",
+          "count": {
+            "severity": "warning",
+            "message": "light: \"color/text/secondary\" on \"color/bg/page\" — contrast 3.98:1 (large text only: fails WCAG AA 4.5:1 for normal text, passes 3:1 at ≥ 24px or ≥ 18.66px bold)"
+          },
+          "expect": 1
+        },
+        {
+          "id": "band-warning-dark",
+          "basis": "color/text/secondary on color/bg/page, Dark, 3.66:1: the same warning in the other mode.",
+          "path": "issues",
+          "count": {
+            "severity": "warning",
+            "message": "dark: \"color/text/secondary\" on \"color/bg/page\" — contrast 3.66:1 (large text only: fails WCAG AA 4.5:1 for normal text, passes 3:1 at ≥ 24px or ≥ 18.66px bold)"
+          },
+          "expect": 1
+        },
+        {
+          "id": "below-3-warning-unchanged",
+          "basis": "color/text/muted on color/bg/page, Dark, 2.46:1: the below-3:1 warning keeps its existing wording.",
+          "path": "issues",
+          "count": {
+            "severity": "warning",
+            "message": "dark: \"color/text/muted\" on \"color/bg/page\" — contrast 2.46:1 (fails WCAG AA Large 3:1)"
+          },
+          "expect": 1
+        },
+        {
+          "id": "band-entry-light",
+          "basis": "The pair entry for color/text/secondary in Light: 3.98, fails 4.5:1, passes 3:1.",
+          "path": "contrast.worstLight",
+          "where": { "text": "color/text/secondary", "bg": "color/bg/page" },
+          "expect": { "ratio": 3.98, "passAA": false, "passAALarge": true }
+        },
+        {
+          "id": "below-3-entry-dark",
+          "basis": "The pair entry for color/text/muted in Dark: 2.46, fails both bars.",
+          "path": "contrast.worstDark",
+          "where": { "text": "color/text/muted", "bg": "color/bg/page" },
+          "expect": { "ratio": 2.46, "passAA": false, "passAALarge": false }
+        },
+        {
+          "id": "passing-pair-silent",
+          "basis": "color/text/primary is gray-1000 on gray-0 in Light (21:1): a passing pair stays out of worstLight.",
+          "path": "contrast.worstLight",
+          "count": { "text": "color/text/primary" },
+          "expect": 0
+        }
+      ]
+    }
+  }
+}

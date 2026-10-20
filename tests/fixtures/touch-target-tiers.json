@@ -1,0 +1,56 @@
+{
+  "_readme": "Fixture for the touch-target tiers of audit-accessibility.js. Three interactive component sets (their names hold an interactive keyword) whose State=Default variant sits in each tier: Button 44x44 (2.5.5 AAA), Icon Button 32x32 (2.5.8 AA only), Tab 48x20 (below 2.5.8 AA, short side 20). Each also has a State=Focused variant, so the focus check passes and the only failure is the size under test. Card is not interactive, so the touch-target and focus checks must not run on it even though it is 20x20. No variant carries text, so the contrast and font-size checks pass with nothing to report.",
+  "currentPageId": "P:components",
+  "pages": [
+    {
+      "id": "P:components",
+      "name": "Components",
+      "children": [
+        {
+          "id": "N:button",
+          "name": "Button",
+          "type": "COMPONENT_SET",
+          "fills": [],
+          "children": [
+            { "id": "N:button-default", "name": "State=Default", "type": "COMPONENT", "width": 44, "height": 44, "fills": [], "children": [] },
+            { "id": "N:button-focused", "name": "State=Focused", "type": "COMPONENT", "width": 48, "height": 48, "fills": [], "children": [] }
+          ]
+        },
+        {
+          "id": "N:icon-button",
+          "name": "Icon Button",
+          "type": "COMPONENT_SET",
+          "fills": [],
+          "children": [
+            { "id": "N:icon-button-default", "name": "State=Default", "type": "COMPONENT", "width": 32, "height": 32, "fills": [], "children": [] },
+            { "id": "N:icon-button-focused", "name": "State=Focused", "type": "COMPONENT", "width": 32, "height": 32, "fills": [], "children": [] }
+          ]
+        },
+        {
+          "id": "N:tab",
+          "name": "Tab",
+          "type": "COMPONENT_SET",
+          "fills": [],
+          "children": [
+            { "id": "N:tab-default", "name": "State=Default", "type": "COMPONENT", "width": 48, "height": 20, "fills": [], "children": [] },
+            { "id": "N:tab-focused", "name": "State=Focused", "type": "COMPONENT", "width": 48, "height": 20, "fills": [], "children": [] }
+          ]
+        },
+        {
+          "id": "N:card",
+          "name": "Card",
+          "type": "COMPONENT_SET",
+          "fills": [],
+          "children": [
+            { "id": "N:card-default", "name": "State=Default", "type": "COMPONENT", "width": 20, "height": 20, "fills": [], "children": [] }
+          ]
+        }
+      ]
+    }
+  ],
+  "textStyles": [],
+  "effectStyles": [],
+  "paintStyles": [],
+  "collections": [],
+  "variables": []
+}
