@@ -20,10 +20,12 @@
  *  - Hardcoded color fills and strokes inside component trees
  *  - Missing Auto Layout on components
  *  - Text nodes without TEXT component properties
- *  - WCAG AA contrast for color/text × color/bg pairs in Light and Dark,
- *    scoped so that `color/text/on-{surface}` is only tested against
- *    backgrounds whose name contains `{surface}` as a segment. Alpha tokens
- *    (a colour alias carrying an opacity) are composited before measuring.
+ *  - WCAG AA contrast (1.4.3) for color/text × color/bg pairs in Light and
+ *    Dark: a warning for every pair below 4.5:1, worded apart for a pair that
+ *    still passes 3:1 as large text. Scoped so that `color/text/on-{surface}`
+ *    is only tested against backgrounds whose name contains `{surface}` as a
+ *    segment. Alpha tokens (a colour alias carrying an opacity) are composited
+ *    before measuring.
  *
  * Per SKILL.md Critical Rule #3: this script flags hardcoded *colors*
  * only (fills, strokes). Component-specific pixel dimensions outside
@@ -679,7 +681,18 @@ async function runAudit() {
   // ONLY against backgrounds whose name contains `{surface}` as a name segment
   // (split by "/" or "-"). This avoids false positives like pairing
   // "color/text/on-accent" with "color/bg/card".
-  const contrastReport = { light: [], dark: [], failures: 0, skipped: 0 };
+  // Token pairs carry no font size, so a ratio between 3:1 and 4.5:1 is not a
+  // verdict: the pair passes 1.4.3 only where its text is large. It warns in
+  // its own words. `failures` counts every pair below 4.5:1; `largeTextOnly`
+  // and `failAllSizes` split them at 3:1.
+  const contrastReport = {
+    light: [],
+    dark: [],
+    failures: 0,
+    largeTextOnly: 0,
+    failAllSizes: 0,
+    skipped: 0,
+  };
 
   const textVars = variables.filter((v) => /^color\/text\//i.test(v.name));
   const bgVars = variables.filter((v) => /^color\/bg\//i.test(v.name));
@@ -743,13 +756,18 @@ async function runAudit() {
           entry.alphaComposited = true;
         }
         contrastReport[label].push(entry);
-        if (!entry.passAALarge) {
+        if (!entry.passAA) {
           contrastReport.failures++;
+          if (entry.passAALarge) contrastReport.largeTextOnly++;
+          else contrastReport.failAllSizes++;
           if (contrastReport.failures <= 10) {
+            const verdict = entry.passAALarge
+              ? "large text only: fails WCAG AA 4.5:1 for normal text, passes 3:1 at ≥ 24px or ≥ 18.66px bold"
+              : "fails WCAG AA Large 3:1";
             addIssue(
               "warning",
               "accessibility",
-              `${label}: "${tv.name}" on "${bv.name}" — contrast ${entry.ratio}:1 (fails WCAG AA Large 3:1)`
+              `${label}: "${tv.name}" on "${bv.name}" — contrast ${entry.ratio}:1 (${verdict})`
             );
           }
         }
@@ -793,6 +811,8 @@ async function runAudit() {
       darkPairs: contrastReport.dark.length,
       skippedInverseMismatches: contrastReport.skipped,
       failures: contrastReport.failures,
+      largeTextOnly: contrastReport.largeTextOnly,
+      failAllSizes: contrastReport.failAllSizes,
       worstLight: contrastReport.light
         .filter((p) => !p.passAA)
         .sort((a, b) => a.ratio - b.ratio)

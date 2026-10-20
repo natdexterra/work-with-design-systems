@@ -1,7 +1,7 @@
 /**
  * audit-accessibility.js
  *
- * Module: 3 — Accessibility (WCAG 2.1 AA)
+ * Module: 3 — Accessibility
  * Input:  COMPONENT_SET_ID (string)
  * Output: {
  *           componentName, componentId,
@@ -10,10 +10,12 @@
  *         }
  *
  * Checks:
- *   - Color contrast (WCAG 1.4.3) — text vs nearest ancestor background
- *   - Touch target (WCAG 2.5.5) — Default variant ≥ 44×44 for interactive types
- *   - Font size minimum — text ≥ 12px
- *   - Focus indicator (WCAG 2.4.7) — Focused state variant exists for interactive types
+ *   - Color contrast (WCAG 1.4.3 Contrast (Minimum), AA) — text vs nearest ancestor background
+ *   - Touch target — Default variant of interactive types, reported against
+ *     WCAG 2.5.8 Target Size (Minimum) (AA, 24×24, WCAG 2.2) and 2.5.5 Target
+ *     Size (Enhanced) (AAA, 44×44); passes at 44×44
+ *   - Font size minimum — text ≥ 12px; a house rule, not a WCAG criterion
+ *   - Focus indicator (WCAG 2.4.7 Focus Visible, AA) — Focused state variant exists for interactive types
  *
  * Usage: Run via use_figma with the figma-use skill loaded first.
  * Pass skillNames: "work-with-design-systems" for logging.
@@ -70,7 +72,13 @@ checks.push({
   issues: contrastIssues
 });
 
-// --- 2. Touch target (WCAG 2.5.5) ---
+// --- 2. Touch target (WCAG 2.5.8 AA / 2.5.5 AAA) ---
+// The pass bar is 2.5.5's 44×44 (AAA), not 2.5.8's 24×24 (AA), on purpose:
+// 2.5.8 also passes a smaller target spaced away from its neighbours, which a
+// component measured alone cannot show, and a component shipped at the AA
+// minimum leaves its consumers no headroom. Set PASS_SIDE to 24 to audit at
+// the WCAG 2.2 AA floor.
+const PASS_SIDE = 44;
 const nameLower = cs.name.toLowerCase();
 const isInteractive = ['button', 'input', 'select', 'checkbox', 'radio', 'toggle', 'switch', 'link', 'tab']
   .some(t => nameLower.includes(t));
@@ -91,16 +99,23 @@ if (isInteractive) {
 
   const width = defaultVariant.width || 0;
   const height = defaultVariant.height || 0;
-  const passes = width >= 44 && height >= 44;
+  const side = Math.min(width, height);
+  const passes = side >= PASS_SIDE;
+  const meetsAA = side >= 24;
+  const tier = side >= 44
+    ? 'meets 2.5.5 AAA (44×44)'
+    : meetsAA
+      ? 'meets 2.5.8 AA (24×24, WCAG 2.2) only'
+      : 'below 2.5.8 AA (24×24)';
+  const bar = !passes && meetsAA ? `, below the ${PASS_SIDE}×${PASS_SIDE} bar` : '';
 
   checks.push({
-    name: 'Touch target (WCAG 2.5.5)',
+    name: 'Touch target (WCAG 2.5.8 AA / 2.5.5 AAA)',
     passed: passes,
-    details: passes
-      ? `${Math.round(width)}×${Math.round(height)}px (passes 44×44 minimum)`
-      : `${Math.round(width)}×${Math.round(height)}px (below 44×44 minimum)`,
+    details: `${Math.round(width)}×${Math.round(height)}px, ${tier}${bar}`,
     width: Math.round(width),
     height: Math.round(height),
+    meetsAA,
     measuredVariant: defaultVariant.name
   });
 }

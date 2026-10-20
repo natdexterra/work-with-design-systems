@@ -162,7 +162,7 @@ All interactive components in Focused state must show:
 
 ## Accessibility notes
 
-- Ensure touch targets are minimum 44×44px (or document when smaller is acceptable)
+- Touch targets at least 44×44px (WCAG 2.5.5, AAA), the bar the inspect audit passes at. WCAG 2.2 AA (2.5.8) asks for 24×24, so a smaller target is documented in the description; below 24×24 it passes AA only through the 2.5.8 spacing exception, which depends on where the product places it
 - Text contrast must meet WCAG AA: 4.5:1 for normal text, 3:1 for large text
 - Non-text contrast (borders, icons): 3:1 minimum
 - Disabled states: don't rely on color alone; use reduced opacity or pattern

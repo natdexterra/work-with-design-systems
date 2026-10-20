@@ -1,0 +1,121 @@
+{
+  "_readme": "Answer key for tests/fixtures/touch-target-tiers.json. Written from the fixture, not from script output: every `basis` names the fixture values the expectation comes from. The pass bar is 44x44 (2.5.5, AAA); meetsAA is the 24x24 floor of 2.5.8 (AA, WCAG 2.2), judged on the shorter side of the State=Default variant. One entry per component set, because the script audits one set per call.",
+  "scripts": {
+    "touch target: Button 44x44": {
+      "script": "scripts/inspect/audit-accessibility.js",
+      "args": {
+        "COMPONENT_SET_ID": "N:button"
+      },
+      "checks": [
+        {
+          "id": "44x44-name",
+          "basis": "Checks run in a fixed order: contrast (index 0), touch target (1), font size (2), focus (3); touch target and focus only for interactive names. The check names both criteria it reports against.",
+          "path": "checks.1.name",
+          "expect": "Touch target (WCAG 2.5.8 AA / 2.5.5 AAA)"
+        },
+        {
+          "id": "44x44-passed",
+          "basis": "Both sides are 44, the pass bar.",
+          "path": "checks.1.passed",
+          "expect": true
+        },
+        {
+          "id": "44x44-meetsAA",
+          "basis": "The shorter side, 44, is at least 24.",
+          "path": "checks.1.meetsAA",
+          "expect": true
+        },
+        {
+          "id": "44x44-details",
+          "basis": "State=Default is 44x44: the details give the measured size and the tier reached.",
+          "path": "checks.1.details",
+          "expect": "44×44px, meets 2.5.5 AAA (44×44)"
+        }
+      ]
+    },
+    "touch target: Icon Button 32x32": {
+      "script": "scripts/inspect/audit-accessibility.js",
+      "args": {
+        "COMPONENT_SET_ID": "N:icon-button"
+      },
+      "checks": [
+        {
+          "id": "32x32-name",
+          "basis": "Checks run in a fixed order: contrast (index 0), touch target (1), font size (2), focus (3); touch target and focus only for interactive names. The check names both criteria it reports against.",
+          "path": "checks.1.name",
+          "expect": "Touch target (WCAG 2.5.8 AA / 2.5.5 AAA)"
+        },
+        {
+          "id": "32x32-passed",
+          "basis": "32 is below the 44 pass bar.",
+          "path": "checks.1.passed",
+          "expect": false
+        },
+        {
+          "id": "32x32-meetsAA",
+          "basis": "32 is at least 24, so AA is met although the check fails.",
+          "path": "checks.1.meetsAA",
+          "expect": true
+        },
+        {
+          "id": "32x32-details",
+          "basis": "State=Default is 32x32: the details give the measured size and the tier reached.",
+          "path": "checks.1.details",
+          "expect": "32×32px, meets 2.5.8 AA (24×24, WCAG 2.2) only, below the 44×44 bar"
+        }
+      ]
+    },
+    "touch target: Tab 48x20": {
+      "script": "scripts/inspect/audit-accessibility.js",
+      "args": {
+        "COMPONENT_SET_ID": "N:tab"
+      },
+      "checks": [
+        {
+          "id": "48x20-name",
+          "basis": "Checks run in a fixed order: contrast (index 0), touch target (1), font size (2), focus (3); touch target and focus only for interactive names. The check names both criteria it reports against.",
+          "path": "checks.1.name",
+          "expect": "Touch target (WCAG 2.5.8 AA / 2.5.5 AAA)"
+        },
+        {
+          "id": "48x20-passed",
+          "basis": "The shorter side, 20, is below the 44 pass bar.",
+          "path": "checks.1.passed",
+          "expect": false
+        },
+        {
+          "id": "48x20-meetsAA",
+          "basis": "The shorter side, 20, is below 24; the 48 width does not make up for it.",
+          "path": "checks.1.meetsAA",
+          "expect": false
+        },
+        {
+          "id": "48x20-details",
+          "basis": "State=Default is 48x20: the details give the measured size and the tier reached.",
+          "path": "checks.1.details",
+          "expect": "48×20px, below 2.5.8 AA (24×24)"
+        }
+      ]
+    },
+    "touch target: Card not interactive": {
+      "script": "scripts/inspect/audit-accessibility.js",
+      "args": {
+        "COMPONENT_SET_ID": "N:card"
+      },
+      "checks": [
+        {
+          "id": "card-total",
+          "basis": "Card holds no interactive keyword, so only contrast and font size run, whatever its 20x20 size.",
+          "path": "total",
+          "expect": 2
+        },
+        {
+          "id": "card-no-touch-check",
+          "basis": "The second check of a non-interactive set is font size, not touch target.",
+          "path": "checks.1.name",
+          "expect": "Font size minimum"
+        }
+      ]
+    }
+  }
+}

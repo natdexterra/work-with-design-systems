@@ -1,0 +1,149 @@
+{
+  "_readme": "Fixture for the two contrast bands of WCAG 1.4.3. Primitives hold six neutral greys (r = g = b) and one font-size FLOAT; Semantic holds three text roles and one background, each with a Light and a Dark value. color/text/primary passes everywhere, color/text/secondary sits between 3:1 and 4.5:1 in both modes (passes only as large text), and color/text/muted sits below 3:1 in both modes. Scopes, codeSyntax.WEB names, modes, pages and the text-style binding are complete, so the only findings are the contrast pairs under test.",
+  "currentPageId": "P:foundations",
+  "pages": [
+    { "id": "P:cover", "name": "Cover", "children": [] },
+    { "id": "P:foundations", "name": "Foundations", "children": [] },
+    { "id": "P:components", "name": "Components", "children": [] }
+  ],
+  "textStyles": [
+    {
+      "name": "Body/Default",
+      "boundVariables": { "fontSize": { "type": "VARIABLE_ALIAS", "id": "V:fs16" } }
+    }
+  ],
+  "effectStyles": [],
+  "paintStyles": [],
+  "collections": [
+    {
+      "id": "C:primitives",
+      "name": "Primitives",
+      "defaultModeId": "m:value",
+      "modes": [{ "modeId": "m:value", "name": "Value" }],
+      "variableIds": ["V:gray0", "V:gray300", "V:gray400", "V:gray500", "V:gray700", "V:gray1000", "V:fs16"]
+    },
+    {
+      "id": "C:semantic",
+      "name": "Semantic",
+      "defaultModeId": "m:light",
+      "modes": [
+        { "modeId": "m:light", "name": "Light" },
+        { "modeId": "m:dark", "name": "Dark" }
+      ],
+      "variableIds": ["V:textPrimary", "V:textSecondary", "V:textMuted", "V:bgPage"]
+    }
+  ],
+  "variables": [
+    {
+      "id": "V:gray0",
+      "name": "color/gray-0",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-gray-0" },
+      "valuesByMode": { "m:value": { "r": 1, "g": 1, "b": 1, "a": 1 } }
+    },
+    {
+      "id": "V:gray300",
+      "name": "color/gray-300",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-gray-300" },
+      "valuesByMode": { "m:value": { "r": 0.3, "g": 0.3, "b": 0.3, "a": 1 } }
+    },
+    {
+      "id": "V:gray400",
+      "name": "color/gray-400",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-gray-400" },
+      "valuesByMode": { "m:value": { "r": 0.4, "g": 0.4, "b": 0.4, "a": 1 } }
+    },
+    {
+      "id": "V:gray500",
+      "name": "color/gray-500",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-gray-500" },
+      "valuesByMode": { "m:value": { "r": 0.5, "g": 0.5, "b": 0.5, "a": 1 } }
+    },
+    {
+      "id": "V:gray700",
+      "name": "color/gray-700",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-gray-700" },
+      "valuesByMode": { "m:value": { "r": 0.7, "g": 0.7, "b": 0.7, "a": 1 } }
+    },
+    {
+      "id": "V:gray1000",
+      "name": "color/gray-1000",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-gray-1000" },
+      "valuesByMode": { "m:value": { "r": 0, "g": 0, "b": 0, "a": 1 } }
+    },
+    {
+      "id": "V:fs16",
+      "name": "font/size-16",
+      "resolvedType": "FLOAT",
+      "variableCollectionId": "C:primitives",
+      "scopes": ["FONT_SIZE"],
+      "codeSyntax": { "WEB": "--font-size-16" },
+      "valuesByMode": { "m:value": 16 }
+    },
+    {
+      "id": "V:textPrimary",
+      "name": "color/text/primary",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-text-primary" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:gray1000" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:gray0" }
+      }
+    },
+    {
+      "id": "V:textSecondary",
+      "name": "color/text/secondary",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-text-secondary" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:gray500" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:gray400" }
+      }
+    },
+    {
+      "id": "V:textMuted",
+      "name": "color/text/muted",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["TEXT_FILL"],
+      "codeSyntax": { "WEB": "--color-text-muted" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:gray700" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:gray300" }
+      }
+    },
+    {
+      "id": "V:bgPage",
+      "name": "color/bg/page",
+      "resolvedType": "COLOR",
+      "variableCollectionId": "C:semantic",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "codeSyntax": { "WEB": "--color-bg-page" },
+      "valuesByMode": {
+        "m:light": { "type": "VARIABLE_ALIAS", "id": "V:gray0" },
+        "m:dark": { "type": "VARIABLE_ALIAS", "id": "V:gray1000" }
+      }
+    }
+  ]
+}
