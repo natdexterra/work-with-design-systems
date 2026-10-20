@@ -13,9 +13,9 @@
         },
         {
           "id": "summary",
-          "basis": "6 contrast failures below 3:1 (see contrast-failures) are the only issues the fixture may produce. All three library pages exist, so no info lines.",
+          "basis": "7 contrast failures below 4.5:1 (see contrast-failures) are the only issues the fixture may produce: 6 below 3:1 and 1 that passes only as large text. All three library pages exist, so no info lines.",
           "path": "summary",
-          "expect": { "errors": 0, "warnings": 6, "info": 0 }
+          "expect": { "errors": 0, "warnings": 7, "info": 0 }
         },
         {
           "id": "light-pairs",
@@ -63,9 +63,9 @@
         },
         {
           "id": "contrast-failures",
-          "basis": "Below 3:1: color/text/disabled on each of the three backgrounds in both modes (1.14 / 1.14 / 1.15 light, 1.14 / 1.15 / 1.06 dark) = 6. color/text/link passes everywhere (4.68 / 4.80 / 5.37 light, 4.68 / 5.37 / 3.91 dark).",
+          "basis": "Below 4.5:1: color/text/disabled on each of the three backgrounds in both modes (1.14 / 1.14 / 1.15 light, 1.14 / 1.15 / 1.06 dark) = 6, all below 3:1, plus color/text/link on color/bg/page in Dark (3.91, blue on black), which passes only as large text = 7. color/text/link passes 4.5:1 everywhere else (4.68 / 4.80 / 5.37 light, 4.68 / 5.37 dark).",
           "path": "contrast.failures",
-          "expect": 6
+          "expect": 7
         },
         {
           "id": "alpha-warning-text",
