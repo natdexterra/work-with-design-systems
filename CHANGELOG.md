@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-10-20
+
+The touch-target check names the WCAG tier it measures, and the validator warns on text pairs between 3:1 and 4.5:1; `npm test` runs 77 checks over six fixtures.
+
+#### Fixed
+
+- **The touch-target check carried an AAA criterion under an AA label.** Module 3 called itself "WCAG 2.1 AA" and its 44×44 check "WCAG 2.5.5", which is Level AAA; WCAG 2.1 has no AA target-size criterion at all. `accessibility.md`, the script header and the README now name what runs: 1.4.3 and 2.4.7 at AA, target size against 2.5.8 (AA, 24×24, WCAG 2.2) and 2.5.5 (AAA, 44×44), and a font-size floor that is a house rule. The pass bar stays 44×44, stated as the stricter bar on purpose: a component measured alone cannot use the spacing exception of 2.5.8, and one shipped at the AA minimum leaves its consumers no headroom. The check is now "Touch target (WCAG 2.5.8 AA / 2.5.5 AAA)", its `details` name the tier reached, a `meetsAA` flag sits next to `width` and `height`, and the bar is one constant, `PASS_SIDE`. `component-spec.md` keeps 44×44 for new components and says what a smaller one needs. The report templates gain a Standard line (the client's or the law's WCAG version and level, or "not stated") and the tier next to the touch-target size. New fixture `touch-target-tiers` (44×44, 32×32, 48×20 and a non-interactive set), red against the old script.
+- **The validator was silent on text pairs between 3:1 and 4.5:1.** SKILL.md and `token-taxonomy.md` promise every text-on-bg pair at 4.5:1, but `validate-design-system.js` warned only below 3:1, so a pair at 3.9:1 raised no issue and no count. Such a pair now warns in its own words: it fails 4.5:1 for normal text and passes 3:1 at ≥ 24px or ≥ 18.66px bold, because a token pair carries no font size. The Phase 5 checklist names both bands. `contrast.failures` counts every pair below 4.5:1, split into `largeTextOnly` and `failAllSizes`; the below-3:1 wording is unchanged, and the 10-issue cap and the "+N more" line count both bands. New fixture `contrast-tiers`, red before the change. The `alias-with-opacity` key moves from 6 failures to 7: its link text on the Dark page background is 3.91:1.
+
 ### 2026-10-02
 
 Descriptions, modes, and names that a second tool rewrites; one validator check; a formatter that writes `tokens.css`. `npm test`: 50 checks over four fixtures. The validator ran read-only on a live design-system file before and after the change, on the same page: the same 22 findings (0 errors, 21 warnings, 1 info) both times, and 0 collisions.
